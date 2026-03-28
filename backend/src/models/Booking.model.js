@@ -1,4 +1,3 @@
-// backend/src/models/Booking.model.js
 import mongoose from "mongoose";
 
 const bookingSchema = new mongoose.Schema({
@@ -8,7 +7,7 @@ const bookingSchema = new mongoose.Schema({
     required: true,
   },
   court: {
-    type: String,  // Can be String since we're using custom court IDs
+    type: String,
     ref: "Court",
     required: true,
   },
@@ -29,7 +28,6 @@ const bookingSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-// Prevent double booking (same court, date, and time)
 bookingSchema.index({ court: 1, date: 1, timeSlot: 1 }, { unique: true });
 
 export default mongoose.model("Booking", bookingSchema);

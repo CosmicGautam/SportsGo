@@ -6,7 +6,6 @@ export default function Contact() {
   const handleSubmit = (e) => {
     e.preventDefault();
     alert("Thank you! Your message has been sent.");
-    // later → POST to backend (MongoDB)
   };
 
   return (

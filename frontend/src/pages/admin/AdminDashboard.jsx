@@ -1,4 +1,3 @@
-// src/pages/admin/AdminDashboard.jsx
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getAllBookings } from "../../api/booking.api.js";
@@ -79,7 +78,7 @@ export default function AdminDashboard() {
       setSuccess("Court added successfully!");
       setCourtForm({ name: "", location: "", pricePerHour: "", amenities: "" });
       setShowAddCourt(false);
-      fetchStats(); // Refresh stats
+      fetchStats();
     } catch (err) {
       console.error("Create court error:", err);
       setError(err.message || "Failed to create court");
@@ -105,7 +104,7 @@ export default function AdminDashboard() {
 
   return (
     <>
-      <Header />
+      
 
       <section style={{ minHeight: "70vh", padding: "2rem 0", background: '#f9fafb' }}>
         <div className="container">

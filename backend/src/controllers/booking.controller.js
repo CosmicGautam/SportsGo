@@ -47,8 +47,6 @@ export const getUserBookings = async (req, res) => {
   }
 };
 
-// backend/src/controllers/booking.controller.js
-// ADD THIS FUNCTION to your booking.controller.js
 
 // Get all bookings (admin only)
 export const getAllBookings = async (req, res) => {
@@ -58,7 +56,6 @@ export const getAllBookings = async (req, res) => {
       .populate('court')
       .sort({ date: -1 });
     
-    console.log(`📊 Admin fetched ${bookings.length} total bookings`);
     res.json(bookings);
   } catch (error) {
     console.error("Get all bookings error:", error);
@@ -74,7 +71,6 @@ export const cancelBooking = async (req, res) => {
       return res.status(404).json({ message: "Booking not found" });
     }
     
-    // Check if user owns this booking or is admin
     if (booking.user.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ message: "Not authorized" });
     }

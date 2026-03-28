@@ -1,9 +1,7 @@
-// src/App.jsx
 import { Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
-import WhatsAppFloat from "./components/layout/WhatsappFloat";
 
 import Home from "./pages/public/Home";
 import Courts from "./pages/public/Courts";
@@ -70,7 +68,6 @@ function App() {
         />
       </Routes>
 
-      <WhatsAppFloat />
     </AuthProvider>
   );
 }

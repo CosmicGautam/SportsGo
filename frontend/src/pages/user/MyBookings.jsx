@@ -1,4 +1,3 @@
-// src/pages/user/MyBookings.jsx
 import { useState, useEffect } from "react";
 import { getUserBookings, cancelBooking } from "../../api/booking.api";
 import Header from "../../components/layout/Header";

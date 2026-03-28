@@ -1,4 +1,3 @@
-// backend/src/controllers/court.controller.js
 import Court from "../models/Court.model.js";
 
 // Get all courts
@@ -28,12 +27,11 @@ export const getCourtById = async (req, res) => {
   }
 };
 
-// Create new court (admin only)
+// Create new court
 export const createCourt = async (req, res) => {
   try {
     const { name, location, pricePerHour, amenities } = req.body;
     
-    // Validation
     if (!name || !location || !pricePerHour) {
       return res.status(400).json({ 
         message: "Please provide name, location, and price" 
@@ -54,7 +52,7 @@ export const createCourt = async (req, res) => {
   }
 };
 
-// Update court (admin only)
+// Update court
 export const updateCourt = async (req, res) => {
   try {
     const { name, location, pricePerHour, amenities } = req.body;
@@ -65,7 +63,6 @@ export const updateCourt = async (req, res) => {
       return res.status(404).json({ message: "Court not found" });
     }
     
-    // Update fields
     if (name) court.name = name;
     if (location) court.location = location;
     if (pricePerHour) court.pricePerHour = pricePerHour;
@@ -80,7 +77,7 @@ export const updateCourt = async (req, res) => {
   }
 };
 
-// Delete court (admin only)
+// Delete court
 export const deleteCourt = async (req, res) => {
   try {
     const court = await Court.findById(req.params.id);

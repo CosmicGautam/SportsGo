@@ -1,4 +1,3 @@
-// backend/src/routes/court.routes.js
 import express from "express";
 import { getCourts, getCourtById, createCourt } from "../controllers/court.controller.js";
 import { protect } from "../middleware/auth.middleware.js";
@@ -10,4 +9,4 @@ router.get("/", getCourts);
 router.get("/:id", getCourtById);
 router.post("/", protect, isAdmin, createCourt);
 
-export default router;  // ← Make sure this line exists!
+export default router;

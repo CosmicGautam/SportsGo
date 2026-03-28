@@ -1,13 +1,11 @@
-// src/pages/public/Courts.jsx
 import { useNavigate } from "react-router-dom";
 import "../../styles/courts.css";
 import Header from "../../components/layout/Header";
 import Footer from "../../components/layout/Footer";
 
-// Hardcoded courts with their database IDs
 const COURTS = [
   {
-    id: "indoor-arena", // This should match the court ID in your database
+    id: "indoor-arena",
     name: "Indoor Arena",
     description: "Wooden flooring • Climate controlled",
     price: 1500,
@@ -18,14 +16,14 @@ const COURTS = [
     name: "Outdoor Pitch", 
     description: "Artificial turf • Flood lights",
     price: 1200,
-    image: "https://images.unsplash.com/photo-1546519638-68e109498ffc"
+    image: "https://images.unsplash.com/photo-1521217078329-f8fc1becab68?q=80&w=627&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
   },
   {
     id: "training-court",
     name: "Training Court",
     description: "Perfect for practice sessions",
     price: 1000,
-    image: "https://images.unsplash.com/photo-1594737625785-cf38e05d2c9d"
+    image: "https://images.unsplash.com/photo-1622862259519-f6aab1c6168a?q=80&w=1127&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
   }
 ];
 

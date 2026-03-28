@@ -1,4 +1,3 @@
-// src/pages/admin/AllBookings.jsx
 import { useState, useEffect } from "react";
 import { getAllBookings, cancelBooking } from "../../api/booking.api.js";
 import Header from "../../components/layout/Header";
@@ -10,7 +9,7 @@ export default function AllBookings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [filter, setFilter] = useState("all"); // all, today, upcoming
+  const [filter, setFilter] = useState("all"); 
 
   useEffect(() => {
     fetchBookings();

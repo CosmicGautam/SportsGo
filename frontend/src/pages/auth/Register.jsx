@@ -1,4 +1,3 @@
-// src/pages/auth/Register.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { register } from "../../api/auth.api";
@@ -32,7 +31,6 @@ export default function Register() {
     e.preventDefault();
     setError("");
 
-    // Validation
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -56,10 +54,8 @@ export default function Register() {
 
       console.log("Registration successful:", data);
 
-      // Store auth data
       authLogin(data);
 
-      // Redirect based on role
       if (data.role === "admin") {
         navigate("/admin");
       } else {

@@ -1,9 +1,8 @@
-// backend/src/models/Court.model.js
 import mongoose from "mongoose";
 
 const courtSchema = new mongoose.Schema({
   _id: {
-    type: String,  // Allow custom string IDs like "indoor-arena"
+    type: String,  
   },
   name: {
     type: String,
@@ -22,7 +21,7 @@ const courtSchema = new mongoose.Schema({
   }],
 }, {
   timestamps: true,
-  _id: false  // Don't auto-generate ObjectId
+  _id: false  
 });
 
 export default mongoose.model("Court", courtSchema);

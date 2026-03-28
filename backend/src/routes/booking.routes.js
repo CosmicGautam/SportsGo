@@ -1,4 +1,3 @@
-// backend/src/routes/booking.routes.js
 import express from "express";
 import { protect } from "../middleware/auth.middleware.js";
 import { isAdmin } from "../middleware/role.middleware.js";
@@ -15,7 +14,7 @@ const router = express.Router();
 // Public routes
 router.get("/slots", getSlots);
 
-// Protected routes (require authentication)
+//auth required
 router.post("/", protect, createBooking);
 router.get("/user", protect, getUserBookings);
 router.delete("/:id", protect, cancelBooking);
