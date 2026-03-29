@@ -1,11 +1,11 @@
 // src/pages/provider/ProviderDashboard.jsx
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
 import {
   getMyCourts,
   createCourt,
   updateCourt,
   deleteCourt,
+  courtImageUrl,
 } from "../../api/courts.api";
 import { useAuth } from "../../context/AuthContext";
 import Footer from "../../components/layout/Footer";
@@ -28,8 +28,7 @@ const EMPTY_FORM = {
 };
 
 export default function ProviderDashboard() {
-  const { user, isProvider, isSuperAdmin } = useAuth();
-  const navigate = useNavigate();
+  const { user, isSuperAdmin } = useAuth();
 
   const [courts, setCourts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,23 +40,26 @@ export default function ProviderDashboard() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const fetchCourts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getMyCourts();
+      setCourts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      const msg =
+        typeof err === "object" && err !== null && "message" in err
+          ? String(err.message)
+          : "Failed to load courts";
+      setError(msg);
+      setCourts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    if (!isProvider && !isSuperAdmin) navigate("/");
-  }, [isProvider, isSuperAdmin, navigate]);
-
-  useEffect(() => fetchCourts(), []);
-
-  const fetchCourts = async () => {
-  setLoading(true);
-  try {
-    const data = await getMyCourts();
-    setCourts(data);
-  } catch (err) {
-    setError(err.message || "Failed to load courts");
-  } finally {
-    setLoading(false);
-  }
-};
+    fetchCourts();
+  }, [fetchCourts]);
 
   const resetForm = () => {
     setForm(EMPTY_FORM);
@@ -68,7 +70,15 @@ export default function ProviderDashboard() {
     setSuccess("");
   };
 
-  const openAddForm = () => resetForm();
+  /** New court: clear fields and open the form (do not use resetForm — that hides the form). */
+  const openAddForm = () => {
+    setForm(EMPTY_FORM);
+    setPreview("");
+    setEditingId(null);
+    setShowForm(true);
+    setError("");
+    setSuccess("");
+  };
 
   const openEditForm = (court) => {
     setForm({
@@ -81,7 +91,7 @@ export default function ProviderDashboard() {
       amenities: (court.amenities || []).join(", "),
       imageFile: null,
     });
-    setPreview(court.image ? `http://localhost:5000/uploads/${court.image}` : "");
+    setPreview(courtImageUrl(court.image) || "");
     setEditingId(court._id);
     setShowForm(true);
   };
@@ -104,8 +114,12 @@ export default function ProviderDashboard() {
       formData.append("type", form.type);
       formData.append("description", form.description);
       formData.append("district", form.district);
-      formData.append("address", form.address);
-      formData.append("pricePerHour", Number(form.pricePerHour));
+      formData.append("address", form.address ?? "");
+      const priceNum = Number(form.pricePerHour);
+      formData.append(
+        "pricePerHour",
+        Number.isFinite(priceNum) ? String(priceNum) : "0"
+      );
 
       const amenitiesArray = form.amenities.split(",").map((a) => a.trim()).filter(Boolean);
       formData.append("amenities", JSON.stringify(amenitiesArray));
@@ -123,7 +137,11 @@ export default function ProviderDashboard() {
       resetForm();
       fetchCourts();
     } catch (err) {
-      setError(err.message || "Failed to save court");
+      const msg =
+        typeof err === "object" && err !== null && "message" in err
+          ? String(err.message)
+          : "Failed to save court";
+      setError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -216,9 +234,21 @@ export default function ProviderDashboard() {
                 </div>
 
                 <div style={{ gridColumn: "1 / -1" }}>
-                  <label style={labelStyle}>Image</label>
-                  <input type="file" accept="image/*" onChange={handleFileChange} style={{ marginBottom: "1rem" }} />
-                  {preview && <img src={preview} alt="preview" style={{ width: "150px", borderRadius: "8px" }} />}
+                  <label style={labelStyle}>Court photo</label>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={handleFileChange}
+                    style={{ marginBottom: "1rem" }}
+                  />
+                  <p style={{ fontSize: "0.875rem", color: "#6b7280", marginBottom: "0.75rem" }}>
+                    {editingId
+                      ? "Upload a new image to replace the current court photo (optional)."
+                      : "Upload a photo for this court listing (optional but recommended). JPEG, PNG, WebP, or GIF."}
+                  </p>
+                  {preview ? (
+                    <img src={preview} alt="" style={{ width: "180px", maxHeight: "120px", objectFit: "cover", borderRadius: "8px" }} />
+                  ) : null}
                 </div>
               </div>
 
@@ -242,7 +272,7 @@ export default function ProviderDashboard() {
               {courts.map((court) => (
                 <div key={court._id} style={{ background: "white", borderRadius: "12px", padding: "1rem", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
                   <img
-                    src={court.image ? `http://localhost:5000/uploads/${court.image}` : "https://images.unsplash.com/photo-1606925797300-0b35e9d1794e"}
+                    src={courtImageUrl(court.image) || "https://images.unsplash.com/photo-1606925797300-0b35e9d1794e"}
                     alt={court.name}
                     style={{ width: "100%", height: "150px", objectFit: "cover", borderRadius: "8px", marginBottom: "0.5rem" }}
                   />

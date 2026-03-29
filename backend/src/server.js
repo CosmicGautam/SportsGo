@@ -3,18 +3,28 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const path = require("path");
+const fs = require("fs");
+
+const uploadsDir = path.join(__dirname, "..", "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 const app = express();
 
 app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173", credentials: true }));
 app.use(express.json());
 
+app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
+
 // Routes
-app.use("/api/auth",     require("./routes/auth.routes"));
-app.use("/api/courts",   require("./routes/court.routes"));
+app.use("/api/auth", require("./routes/auth.routes"));
+app.use("/api/courts", require("./routes/court.routes"));
 app.use("/api/bookings", require("./routes/booking.routes"));
-app.use("/api/users",    require("./routes/users.routes"));
-app.use("/api/provider", require("./routes/provider.routes"));
+app.use("/api/users", require("./routes/users.routes"));
+app.use("/api/payments", require("./routes/payment.routes"));
+app.use("/api/recommendations", require("./routes/recommendation.routes"));
 
 // Health check
 app.get("/api/health", (_, res) => res.json({ status: "ok" }));

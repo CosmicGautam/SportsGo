@@ -2,19 +2,28 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
-export default function ProtectedRoute({ children, role }) {
+/**
+ * @param {object} props
+ * @param {React.ReactNode} props.children
+ * @param {string} [props.role] - single required role (legacy)
+ * @param {string[]} [props.allowedRoles] - user must have one of these roles
+ */
+export default function ProtectedRoute({ children, role, allowedRoles }) {
   const { user } = useAuth();
 
-  // Not logged in
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  // Check role if specified
-  if (role && user.role !== role) {
-    if (role === "admin" && user.role !== "admin") {
-      return <Navigate to="/courts" replace />;
-    }
+  const roles =
+    allowedRoles && allowedRoles.length > 0
+      ? allowedRoles
+      : role
+        ? [role]
+        : null;
+
+  if (roles && !roles.includes(user.role)) {
+    return <Navigate to="/courts" replace />;
   }
 
   return children;

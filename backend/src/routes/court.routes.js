@@ -3,10 +3,11 @@ const express = require("express");
 const router = express.Router();
 const path = require("path");
 const multer = require("multer");
+const mongoose = require("mongoose");
 const Court = require("../models/Court.model");
 const { protect, restrictTo } = require("../middleware/auth.middleware");
+const { listCourts, SORT_KEYS } = require("../services/courtQuery");
 
-// ─── MULTER CONFIG ────────────────────────────────────────────────────────
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "uploads/"),
   filename: (req, file, cb) => {
@@ -14,36 +15,81 @@ const storage = multer.diskStorage({
     cb(null, `${Date.now()}-${file.fieldname}${ext}`);
   },
 });
-const upload = multer({ storage });
+
+// Accept any image/* (Firefox uses image/pjpeg; phones may use avif/heic; some send empty mimetype).
+const extLooksLikeImage = /\.(jpe?g|png|gif|webp|bmp|avif|heic|heif)$/i;
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const mt = (file.mimetype || "").toLowerCase();
+    if (mt.startsWith("image/")) return cb(null, true);
+    if (!mt && extLooksLikeImage.test(file.originalname || "")) return cb(null, true);
+    return cb(new Error("Upload must be an image file (or omit the file field)"));
+  },
+});
+
+function courtImageUpload(req, res, next) {
+  upload.single("image")(req, res, (err) => {
+    if (!err) return next();
+    const message =
+      err.code === "LIMIT_FILE_SIZE" ? "Image must be 5 MB or smaller" : err.message || "Image upload failed";
+    return res.status(400).json({ message });
+  });
+}
+
+function parseAmenities(body) {
+  const raw = body.amenities;
+  if (raw === undefined || raw === null) return undefined;
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === "string") {
+    const s = raw.trim();
+    if (!s) return [];
+    try {
+      const parsed = JSON.parse(s);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return s.split(",").map((a) => a.trim()).filter(Boolean);
+    }
+  }
+  return undefined;
+}
+
+function mapCreateCourtErrors(err) {
+  if (!err?.errors) return err?.message || "Failed to create court";
+  return Object.values(err.errors)
+    .map((e) => e.message)
+    .join(" ");
+}
 
 // ─── PUBLIC ────────────────────────────────────────────────────────────────
-// GET all active courts with optional filters
+
 router.get("/", async (req, res) => {
   try {
-    const { type, district, minPrice, maxPrice, search } = req.query;
-    const filter = { isActive: true };
-
-    if (type && type !== "All") filter.type = type;
-    if (district && district !== "All") filter.district = district;
-
-    if (minPrice || maxPrice) {
-      filter.pricePerHour = {};
-      if (minPrice) filter.pricePerHour.$gte = Number(minPrice);
-      if (maxPrice) filter.pricePerHour.$lte = Number(maxPrice);
+    const result = await listCourts(req.query);
+    if (Array.isArray(result)) {
+      return res.json(result);
     }
+    return res.json({
+      courts: result.courts,
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages,
+      sortKeys: SORT_KEYS,
+    });
+  } catch (err) {
+    console.error("List courts:", err);
+    res.status(500).json({ message: "Failed to fetch courts" });
+  }
+});
 
-    if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
-        { address: { $regex: search, $options: "i" } },
-      ];
-    }
+// ─── AUTH: provider my-courts (must be before /:id) ─────────────────────────
 
-    const courts = await Court.find(filter)
-      .populate("provider", "name email")
-      .sort({ createdAt: -1 });
-
+router.get("/provider/my-courts", protect, restrictTo("provider", "superadmin"), async (req, res) => {
+  try {
+    const filter = req.user.role === "superadmin" ? {} : { provider: req.user._id };
+    const courts = await Court.find(filter).populate("provider", "name email").sort({ createdAt: -1 });
     res.json(courts);
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch courts" });
@@ -61,18 +107,41 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// ─── PROVIDER + SUPERADMIN ────────────────────────────────────────────────
+// ─── PROVIDER + SUPERADMIN ───────────────────────────────────────────────────
 
-// Create court
 router.post(
   "/",
   protect,
   restrictTo("provider", "superadmin"),
-  upload.single("image"),
+  courtImageUpload,
   async (req, res) => {
     try {
-      const { name, type, description, district, address, pricePerHour, amenities } = req.body;
+      const { providerId } = req.body;
+      const name = String(req.body.name ?? "").trim();
+      const type = String(req.body.type ?? "").trim();
+      const description = String(req.body.description ?? "").trim();
+      const district = String(req.body.district ?? "").trim();
+      const address = req.body.address != null ? String(req.body.address).trim() : "";
+      const priceRaw = req.body.pricePerHour;
+      const pricePerHour = Number(priceRaw);
+
       const image = req.file?.filename || "";
+      const amenities = parseAmenities(req.body) ?? [];
+
+      if (!name) return res.status(400).json({ message: "Name is required" });
+      if (!description) return res.status(400).json({ message: "Description is required" });
+      if (!district) return res.status(400).json({ message: "District is required" });
+      if (!Number.isFinite(pricePerHour) || pricePerHour < 0) {
+        return res.status(400).json({ message: "pricePerHour must be a valid non-negative number" });
+      }
+
+      let provider = req.user._id;
+      if (req.user.role === "superadmin" && providerId) {
+        if (!mongoose.Types.ObjectId.isValid(providerId)) {
+          return res.status(400).json({ message: "Invalid providerId" });
+        }
+        provider = providerId;
+      }
 
       const court = await Court.create({
         name,
@@ -80,25 +149,25 @@ router.post(
         description,
         district,
         address,
-        pricePerHour: Number(pricePerHour),
-        amenities: JSON.parse(amenities || "[]"),
+        pricePerHour,
+        amenities,
         image,
-        provider: req.user._id,
+        provider,
       });
 
       res.status(201).json(court);
     } catch (err) {
-      res.status(400).json({ message: err.message || "Failed to create court" });
+      const message = err.name === "ValidationError" ? mapCreateCourtErrors(err) : err.message || "Failed to create court";
+      res.status(400).json({ message });
     }
   }
 );
 
-// Update court
 router.put(
   "/:id",
   protect,
   restrictTo("provider", "superadmin"),
-  upload.single("image"),
+  courtImageUpload,
   async (req, res) => {
     try {
       const court = await Court.findById(req.params.id);
@@ -108,10 +177,18 @@ router.put(
         return res.status(403).json({ message: "You can only edit your own courts" });
       }
 
-      const allowed = ["name", "type", "description", "district", "address", "pricePerHour", "amenities", "isActive"];
+      const allowed = ["name", "type", "description", "district", "address", "pricePerHour", "isActive"];
       allowed.forEach((field) => {
-        if (req.body[field] !== undefined) court[field] = req.body[field];
+        if (req.body[field] === undefined) return;
+        court[field] = field === "pricePerHour" ? Number(req.body[field]) : req.body[field];
       });
+
+      const am = parseAmenities(req.body);
+      if (am !== undefined) court.amenities = am;
+
+      if (req.user.role === "superadmin" && req.body.providerId && mongoose.Types.ObjectId.isValid(req.body.providerId)) {
+        court.provider = req.body.providerId;
+      }
 
       if (req.file) court.image = req.file.filename;
 
@@ -123,7 +200,6 @@ router.put(
   }
 );
 
-// Soft-delete court
 router.delete("/:id", protect, restrictTo("provider", "superadmin"), async (req, res) => {
   try {
     const court = await Court.findById(req.params.id);
@@ -138,17 +214,6 @@ router.delete("/:id", protect, restrictTo("provider", "superadmin"), async (req,
     res.json({ message: "Court removed" });
   } catch (err) {
     res.status(500).json({ message: "Failed to delete court" });
-  }
-});
-
-// Get courts owned by provider
-router.get("/provider/my-courts", protect, restrictTo("provider", "superadmin"), async (req, res) => {
-  try {
-    const filter = req.user.role === "superadmin" ? {} : { provider: req.user._id };
-    const courts = await Court.find(filter).sort({ createdAt: -1 });
-    res.json(courts);
-  } catch (err) {
-    res.status(500).json({ message: "Failed to fetch courts" });
   }
 });
 

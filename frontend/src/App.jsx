@@ -1,5 +1,4 @@
 import { Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
 import Home from "./pages/public/Home";
@@ -9,6 +8,8 @@ import Contact from "./pages/public/Contact";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import Booking from "./pages/user/Booking";
+import BookingPaymentReturn from "./pages/user/BookingPaymentReturn";
+import BookingPaymentFailure from "./pages/user/BookingPaymentFailure";
 import MyBookings from "./pages/user/MyBookings";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AllBookings from "./pages/admin/AllBookings";
@@ -16,13 +17,15 @@ import AllBookings from "./pages/admin/AllBookings";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import ProviderDashboard from "./pages/provider/ProviderDashboard";
 
+const BOOKING_ROLES = ["user", "provider", "superadmin"];
+const PROVIDER_ROLES = ["provider", "superadmin"];
+
 function App() {
   return (
-    <AuthProvider>
+    <>
       <Header />
 
       <Routes>
-        {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/courts" element={<Courts />} />
         <Route path="/about" element={<About />} />
@@ -30,12 +33,29 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* User Routes */}
         <Route
           path="/booking/:courtId"
           element={
-            <ProtectedRoute role="user">
+            <ProtectedRoute allowedRoles={BOOKING_ROLES}>
               <Booking />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/booking/payment-return"
+          element={
+            <ProtectedRoute allowedRoles={BOOKING_ROLES}>
+              <BookingPaymentReturn />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/booking/failure"
+          element={
+            <ProtectedRoute allowedRoles={BOOKING_ROLES}>
+              <BookingPaymentFailure />
             </ProtectedRoute>
           }
         />
@@ -43,13 +63,12 @@ function App() {
         <Route
           path="/my-bookings"
           element={
-            <ProtectedRoute role="user">
+            <ProtectedRoute allowedRoles={BOOKING_ROLES}>
               <MyBookings />
             </ProtectedRoute>
           }
         />
 
-        {/* Admin Routes */}
         <Route
           path="/admin"
           element={
@@ -59,10 +78,10 @@ function App() {
           }
         />
 
-          <Route
+        <Route
           path="/provider"
           element={
-            <ProtectedRoute role="provider">
+            <ProtectedRoute allowedRoles={PROVIDER_ROLES}>
               <ProviderDashboard />
             </ProtectedRoute>
           }
@@ -78,8 +97,8 @@ function App() {
         />
       </Routes>
 
-      <Footer />
-    </AuthProvider>
+
+    </>
   );
 }
 

@@ -37,7 +37,7 @@ export default function Header() {
               fontSize: '1.5rem',
               margin: 0 
             }}>
-              FutsalGo
+              SportsGo
             </h1>
           </Link>
 
@@ -53,28 +53,13 @@ export default function Header() {
 
             {user ? (
               <>
-                {user.role === "admin" ? (
-                  <>
-                    <Link to="/admin" style={linkStyle}>Dashboard</Link>
-                  </>
-                ) : (
-                  <>
-                    <Link to="/my-bookings" style={linkStyle}>My Bookings</Link>
-                  </>
+                <Link to="/my-bookings" style={linkStyle}>My Bookings</Link>
+                {(user.role === "provider" || user.role === "superadmin") && (
+                  <Link to="/provider" style={linkStyle}>Provider</Link>
                 )}
-
-
-                {user.role === "provider" ? (
-                  <>
-                    <Link to="/provider" style={linkStyle}>Dashboard</Link>
-                  </>
-                ) : (
-                  <>
-                    <Link to="/my-bookings" style={linkStyle}>My Bookings</Link>
-                  </>
+                {user.role === "superadmin" && (
+                  <Link to="/admin" style={linkStyle}>Admin</Link>
                 )}
-
-
 
                 <div className="user-menu" style={{
                   display: 'flex',
@@ -85,7 +70,7 @@ export default function Header() {
                     fontWeight: '600',
                     color: '#1f2937'
                   }}>
-                    {user.user?.name || user.user?.email || 'User'}
+                    {user.name || user.email || "User"}
                   </span>
                   <button
                     onClick={handleLogout}

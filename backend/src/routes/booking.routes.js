@@ -5,10 +5,19 @@ const Booking = require("../models/Booking.model");
 const Court = require("../models/Court.model");
 const { protect, restrictTo } = require("../middleware/auth.middleware");
 
+const bookedSlotFilter = {
+  status: { $ne: "cancelled" },
+};
+
+function isLegacyPaid(b) {
+  return (
+    b.status === "confirmed" &&
+    (b.paymentStatus === "paid" || b.paymentStatus === undefined || b.paymentStatus === null)
+  );
+}
+
 // All booking routes require login
 router.use(protect);
-
-// ─── USER ────────────────────────────────────────────────────────────────────
 
 // GET /api/bookings/slots?courtId=...&date=...
 router.get("/slots", async (req, res) => {
@@ -19,21 +28,25 @@ router.get("/slots", async (req, res) => {
     const court = await Court.findById(courtId);
     if (!court) return res.status(404).json({ message: "Court not found" });
 
-    // Generate hourly slots 06:00 – 22:00
     const allSlots = [];
     for (let h = 6; h < 22; h++) {
       const start = `${String(h).padStart(2, "0")}:00`;
-      const end   = `${String(h + 1).padStart(2, "0")}:00`;
+      const end = `${String(h + 1).padStart(2, "0")}:00`;
       allSlots.push(`${start} - ${end}`);
     }
 
     const existing = await Booking.find({
       court: courtId,
       date: new Date(date),
-      status: "confirmed",
-    }).select("timeSlot");
+      ...bookedSlotFilter,
+    }).select("timeSlot status paymentStatus");
 
-    const bookedSlots = new Set(existing.map((b) => b.timeSlot));
+    const bookedSlots = new Set();
+    for (const b of existing) {
+      if (b.status === "pending_payment" || isLegacyPaid(b)) {
+        bookedSlots.add(b.timeSlot);
+      }
+    }
 
     const slots = allSlots.map((time) => ({ time, booked: bookedSlots.has(time) }));
     res.json(slots);
@@ -42,7 +55,7 @@ router.get("/slots", async (req, res) => {
   }
 });
 
-// POST /api/bookings  — user books a slot
+// POST /api/bookings  — reserve slot (pending payment)
 router.post("/", async (req, res) => {
   try {
     const { courtId, date, time } = req.body;
@@ -50,8 +63,12 @@ router.post("/", async (req, res) => {
     const court = await Court.findById(courtId);
     if (!court) return res.status(404).json({ message: "Court not found" });
 
-    // Check availability
-    const conflict = await Booking.findOne({ court: courtId, date: new Date(date), timeSlot: time, status: "confirmed" });
+    const conflict = await Booking.findOne({
+      court: courtId,
+      date: new Date(date),
+      timeSlot: time,
+      ...bookedSlotFilter,
+    });
     if (conflict) return res.status(409).json({ message: "This slot is already booked" });
 
     const booking = await Booking.create({
@@ -59,11 +76,16 @@ router.post("/", async (req, res) => {
       user: req.user._id,
       date: new Date(date),
       timeSlot: time,
+      status: "pending_payment",
+      paymentStatus: "pending",
       totalPrice: court.pricePerHour,
     });
 
-    await booking.populate("court", "name location pricePerHour");
-    res.status(201).json(booking);
+    await booking.populate("court", "name district pricePerHour address description");
+    res.status(201).json({
+      booking,
+      payment: { providers: ["khalti", "esewa"] },
+    });
   } catch (err) {
     res.status(400).json({ message: err.message || "Failed to create booking" });
   }
@@ -73,7 +95,7 @@ router.post("/", async (req, res) => {
 router.get("/user", async (req, res) => {
   try {
     const bookings = await Booking.find({ user: req.user._id })
-      .populate("court", "name location pricePerHour district")
+      .populate("court", "name district pricePerHour address")
       .sort({ date: -1 });
     res.json(bookings);
   } catch (err) {
@@ -81,40 +103,9 @@ router.get("/user", async (req, res) => {
   }
 });
 
-// DELETE /api/bookings/:id  — user cancels their own booking
-router.delete("/:id", async (req, res) => {
-  try {
-    const booking = await Booking.findById(req.params.id);
-    if (!booking) return res.status(404).json({ message: "Booking not found" });
-
-    // Superadmin can cancel any; provider can cancel bookings on their courts; user cancels own
-    const isSuperAdmin = req.user.role === "superadmin";
-    const isOwner = booking.user.toString() === req.user._id.toString();
-
-    let isProviderCourt = false;
-    if (req.user.role === "provider") {
-      const court = await Court.findById(booking.court);
-      isProviderCourt = court?.provider.toString() === req.user._id.toString();
-    }
-
-    if (!isSuperAdmin && !isOwner && !isProviderCourt) {
-      return res.status(403).json({ message: "Not authorized to cancel this booking" });
-    }
-
-    booking.status = "cancelled";
-    await booking.save();
-    res.json({ message: "Booking cancelled" });
-  } catch (err) {
-    res.status(500).json({ message: "Failed to cancel booking" });
-  }
-});
-
-// ─── PROVIDER ────────────────────────────────────────────────────────────────
-
-// GET /api/bookings/provider  — bookings for provider's courts
+// GET /api/bookings/provider  — bookings for provider's courts (before /:id)
 router.get("/provider", restrictTo("provider", "superadmin"), async (req, res) => {
   try {
-    // Find courts owned by this provider
     const courtFilter = req.user.role === "superadmin" ? {} : { provider: req.user._id };
     const courts = await Court.find(courtFilter).select("_id");
     const courtIds = courts.map((c) => c._id);
@@ -130,8 +121,6 @@ router.get("/provider", restrictTo("provider", "superadmin"), async (req, res) =
   }
 });
 
-// ─── SUPERADMIN ──────────────────────────────────────────────────────────────
-
 // GET /api/bookings/all
 router.get("/all", restrictTo("superadmin"), async (req, res) => {
   try {
@@ -145,9 +134,46 @@ router.get("/all", restrictTo("superadmin"), async (req, res) => {
   }
 });
 
-// ─── SUPERADMIN: User management ─────────────────────────────────────────────
+// DELETE /api/bookings/:id  — cancel
+router.delete("/:id", async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ message: "Booking not found" });
 
-// GET /api/bookings/admin/users  (re-use same router for convenience)
-// Better placed in a users.routes.js — see note in README
+    const isSuperAdmin = req.user.role === "superadmin";
+    const isOwner = booking.user.toString() === req.user._id.toString();
+
+    let isProviderCourt = false;
+    if (req.user.role === "provider") {
+      const court = await Court.findById(booking.court);
+      isProviderCourt = court?.provider.toString() === req.user._id.toString();
+    }
+
+    if (!isSuperAdmin && !isOwner && !isProviderCourt) {
+      return res.status(403).json({ message: "Not authorized to cancel this booking" });
+    }
+
+    booking.status = "cancelled";
+    if (booking.paymentStatus === "pending") booking.paymentStatus = "failed";
+    await booking.save();
+    res.json({ message: "Booking cancelled" });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to cancel booking" });
+  }
+});
+
+// GET /api/bookings/:id  — single booking (owner)
+router.get("/:id", async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id).populate("court", "name district pricePerHour address");
+    if (!booking) return res.status(404).json({ message: "Booking not found" });
+    if (booking.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+    res.json(booking);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch booking" });
+  }
+});
 
 module.exports = router;

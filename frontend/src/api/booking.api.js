@@ -95,4 +95,13 @@ export const cancelBooking = async (bookingId) => {
   }
 };
 
+export const getBookingById = async (bookingId) => {
+  try {
+    const response = await bookingsAPI.get(`/${bookingId}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Failed to fetch booking' };
+  }
+};
+
 export default bookingsAPI;

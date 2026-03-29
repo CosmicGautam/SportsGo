@@ -3,10 +3,20 @@ import { createContext, useContext, useState } from "react";
 
 const AuthContext = createContext();
 
+function readStoredAuth() {
+  try {
+    const raw = localStorage.getItem("auth");
+    if (!raw || raw === "undefined") return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 export const AuthProvider = ({ children }) => {
-  const [auth, setAuth] = useState(
-    JSON.parse(localStorage.getItem("auth")) || null
-  );
+  const [auth, setAuth] = useState(readStoredAuth);
 
   // auth shape: { token, user: { _id, name, email, role } }
 

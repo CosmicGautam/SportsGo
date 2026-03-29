@@ -7,7 +7,7 @@ const Footer = () => {
       textAlign: 'center',
       marginTop: '3rem'
     }}>
-      <p>&copy; 2024 FutsalGo. All rights reserved.</p>
+      <p>&copy; 2026 SportsGo. All rights reserved.</p>
     </footer>
   );
 };

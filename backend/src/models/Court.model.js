@@ -44,7 +44,15 @@ const courtSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Index for fast filtering
+// Index for fast filtering + full-text search (used with sort=relevance)
 courtSchema.index({ type: 1, district: 1, pricePerHour: 1 });
+courtSchema.index({
+  name: "text",
+  description: "text",
+  address: "text",
+  district: "text",
+  type: "text",
+  amenities: "text",
+});
 
 module.exports = mongoose.models.Court || mongoose.model("Court", courtSchema);
