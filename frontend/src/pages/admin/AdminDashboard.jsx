@@ -16,8 +16,10 @@ export default function AdminDashboard() {
   const [courtForm, setCourtForm] = useState({
     name: "",
     location: "",
+    sport: "",
     pricePerHour: "",
-    amenities: ""
+    amenities: "",
+    thumbnail: "",
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -58,32 +60,44 @@ export default function AdminDashboard() {
   };
 
   const handleCourtSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
+  e.preventDefault();
+  setError("");
+  setSuccess("");
 
-    try {
-      const amenitiesArray = courtForm.amenities
-        .split(',')
-        .map(a => a.trim())
-        .filter(Boolean);
+  try {
+    const amenitiesArray = courtForm.amenities
+      .split(',')
+      .map(a => a.trim())
+      .filter(Boolean);
 
-      await createCourt({
-        name: courtForm.name,
-        location: courtForm.location,
-        pricePerHour: Number(courtForm.pricePerHour),
-        amenities: amenitiesArray
-      });
+    const formData = new FormData();
+    formData.append('name', courtForm.name);
+    formData.append('location', courtForm.location);
+    formData.append('sport', courtForm.sport);
+    formData.append('pricePerHour', Number(courtForm.pricePerHour));
+    formData.append('amenities', JSON.stringify(amenitiesArray));
+    formData.append('thumbnail', courtForm.thumbnail); // file object
 
-      setSuccess("Court added successfully!");
-      setCourtForm({ name: "", location: "", pricePerHour: "", amenities: "" });
-      setShowAddCourt(false);
-      fetchStats();
-    } catch (err) {
-      console.error("Create court error:", err);
-      setError(err.message || "Failed to create court");
-    }
-  };
+    await createCourt(formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+
+    setSuccess("Court added successfully!");
+    setCourtForm({
+      name: "",
+      location: "",
+      sport: "",
+      pricePerHour: "",
+      amenities: "",
+      thumbnail: ""
+    });
+    setShowAddCourt(false);
+    fetchStats();
+  } catch (err) {
+    console.error("Create court error:", err);
+    setError(err.message || "Failed to create court");
+  }
+};
 
   if (loading) {
     return (
@@ -300,8 +314,29 @@ export default function AdminDashboard() {
                     type="text"
                     value={courtForm.location}
                     onChange={(e) => setCourtForm({...courtForm, location: e.target.value})}
-                    placeholder="e.g., Kathmandu, Nepal"
+                    placeholder="e.g., Kathmandu, Rautahat"
                     required
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      fontSize: '1rem'
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
+                    Type of Sport
+                  </label>
+                  <input
+                    type="text"
+                    value={courtForm.sport}
+                    onChange={(e) => setCourtForm({...courtForm, sport: e.target.value})}
+                    placeholder="e.g., Futsal, Basketball"
+                    required
+                    min="0"
                     style={{
                       width: '100%',
                       padding: '0.75rem',
@@ -333,6 +368,7 @@ export default function AdminDashboard() {
                   />
                 </div>
 
+
                 <div style={{ marginBottom: '1.5rem' }}>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
                     Amenities (comma-separated)
@@ -348,6 +384,30 @@ export default function AdminDashboard() {
                       border: '2px solid #e5e7eb',
                       borderRadius: '8px',
                       fontSize: '1rem'
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '1rem' }}>
+                  <label
+                    style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}
+                  >
+                    Thumbnail
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*" // restrict to images
+                    onChange={(e) =>
+                      setCourtForm({...courtForm, thumbnail: e.target.files[0],
+                      })
+                    }
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      fontSize: '1rem',
                     }}
                   />
                 </div>

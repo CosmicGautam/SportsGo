@@ -1,6 +1,4 @@
 import "../../styles/home.css";
-import Header from "../../components/layout/Header";
-import Footer from "../../components/layout/Footer";
 
 export default function Home() {
   return (
@@ -12,7 +10,7 @@ export default function Home() {
           <div className="home-hero-content">
             <h1>Play. Compete. Dominate.</h1>
             <p>
-              Premium futsal courts designed for speed, skill, and passion.
+              Premium courts designed for speed, skill, and passion.
             </p>
             <div className="hero-actions">
               <a href="/courts" className="btn btn-primary">
@@ -29,7 +27,7 @@ export default function Home() {
       {/* FEATURES */}
       <section className="home-features">
         <div className="container">
-          <h2 className="section-title">Why FutsalGo?</h2>
+          <h2 className="section-title">Why SportsGo?</h2>
 
           <div className="features-grid">
             <div className="feature-card">
@@ -69,8 +67,6 @@ export default function Home() {
           </a>
         </div>
       </section>
-
-      <Footer />
     </>
   );
 }

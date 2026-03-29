@@ -60,7 +60,7 @@ export default function Login() {
       <section className="auth-hero">
         <div className="container">
           <h1>Login</h1>
-          <p>Access your futsal bookings and dashboard</p>
+          <p>Access your bookings and dashboard</p>
         </div>
       </section>
 

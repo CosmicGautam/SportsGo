@@ -12,7 +12,6 @@ export default function ProtectedRoute({ children, role }) {
 
   // Check role if specified
   if (role && user.role !== role) {
-    // If user is trying to access admin but is not admin
     if (role === "admin" && user.role !== "admin") {
       return <Navigate to="/courts" replace />;
     }

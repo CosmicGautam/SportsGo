@@ -63,6 +63,19 @@ export default function Header() {
                   </>
                 )}
 
+
+                {user.role === "provider" ? (
+                  <>
+                    <Link to="/provider" style={linkStyle}>Dashboard</Link>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/my-bookings" style={linkStyle}>My Bookings</Link>
+                  </>
+                )}
+
+
+
                 <div className="user-menu" style={{
                   display: 'flex',
                   gap: '1rem',

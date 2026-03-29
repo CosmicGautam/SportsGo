@@ -10,8 +10,8 @@ export default function About() {
       {/* HERO */}
       <section className="about-hero">
         <div className="container">
-          <h1>About FutsalGo</h1>
-          <p>Where passion meets professional futsal facilities</p>
+          <h1>About SportsGo</h1>
+          <p>Where passion meets professional sports facilities</p>
         </div>
       </section>
 
@@ -21,8 +21,8 @@ export default function About() {
           <div className="about-text">
             <h2>Our Story</h2>
             <p>
-              FutsalGo was founded with a single mission — to create a premium,
-              accessible, and professionally managed futsal experience for
+              SportsGo was founded with a single mission — to create a premium,
+              accessible, and professionally managed sports experience for
               players of all skill levels.
             </p>
             <p>
@@ -35,7 +35,7 @@ export default function About() {
           <div className="about-image">
             <img
               src="https://images.unsplash.com/photo-1518609878373-06d740f60d8b"
-              alt="Futsal match"
+              alt="Sports match"
             />
           </div>
         </div>
@@ -85,7 +85,6 @@ export default function About() {
         </div>
       </section>
 
-      <Footer />
     </>
   );
 }
