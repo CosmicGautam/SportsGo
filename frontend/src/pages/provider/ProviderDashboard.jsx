@@ -7,8 +7,10 @@ import {
   deleteCourt,
   courtImageUrl,
 } from "../../api/courts.api";
+import { getProviderBookings } from "../../api/booking.api";
 import { useAuth } from "../../context/AuthContext";
 import Footer from "../../components/layout/Footer";
+import paymentsAPI, { getPaymentInformation, updatePaymentInformation } from "../../api/payment.api";
 
 const DISTRICTS = [
   "Kathmandu","Lalitpur","Bhaktapur","Pokhara","Chitwan",
@@ -32,6 +34,8 @@ export default function ProviderDashboard() {
 
   const [courts, setCourts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [providerBookings, setProviderBookings] = useState([]);
+  const [providerBookingsLoading, setProviderBookingsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -57,9 +61,64 @@ export default function ProviderDashboard() {
     }
   }, []);
 
+  const fetchProviderBookings = useCallback(async () => {
+    setProviderBookingsLoading(true);
+    try {
+      const data = await getProviderBookings();
+      setProviderBookings(Array.isArray(data) ? data : []);
+    } catch (err) {
+      const msg =
+        typeof err === "object" && err !== null && "message" in err
+          ? String(err.message)
+          : "Failed to load bookings";
+      setError((prev) => prev || msg);
+      setProviderBookings([]);
+    } finally {
+      setProviderBookingsLoading(false);
+    }
+  }, []);
+
+  const [paymentInfo, setPaymentInfo] = useState({
+    businessName: "",
+    phone:"",
+    preferredProvider: "khalti",
+    khalti: {
+      walletId:"",
+      merchantId:"",
+    },
+    esewa: {
+      merchantCode: "",
+      phone: "",
+    },
+    isVerified: false,
+  });
+  const [paymentLoading, setPaymentLoading] = useState(false);
+
   useEffect(() => {
     fetchCourts();
-  }, [fetchCourts]);
+    fetchProviderBookings();
+  }, [fetchCourts, fetchProviderBookings]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async function loadPayment() {
+      setPaymentLoading(true);
+      try {
+        const data = await getPaymentInformation();
+        if (!mounted) return;
+        setPaymentInfo((prev) => ({ ...prev, ...data }));
+      } catch (err) {
+        // don't treat as fatal here
+        setError((e) => e || (err?.message ? String(err.message) : "Failed to load payment info"));
+      } finally {
+        setPaymentLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const resetForm = () => {
     setForm(EMPTY_FORM);
@@ -160,6 +219,57 @@ export default function ProviderDashboard() {
 
   const f = (key) => (e) => setForm((p) => ({ ...p, [key]: e.target.value }));
 
+  const handlePaymentChange = (e) => {
+    const { name, value } = e.target;
+
+    setPaymentInfo((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleKhaltiChange = (e) => {
+    const { name, value } = e.target;
+
+    setPaymentInfo((prev) => ({
+      ...prev,
+      khalti: {
+        ...prev.khalti,
+        [name]: value,
+      },
+    }));
+  };
+
+  const handleEsewaChange = (e) => {
+    const { name, value } = e.target;
+
+    setPaymentInfo((prev) => ({
+      ...prev,
+      esewa: {
+        ...prev.esewa,
+        [name]: value,
+      },
+    }));
+  };
+
+const handleSavePayment = async () => {
+  try {
+    setPaymentLoading(true);
+    setError("");
+    setSuccess("");
+
+    const data = await updatePaymentInformation(paymentInfo);
+
+    setSuccess(data?.message || "Payment information saved successfully.");
+    if (data?.paymentContact) setPaymentInfo((p) => ({ ...p, ...data.paymentContact }));
+  } catch (err) {
+    const msg = typeof err === "object" && err !== null && "message" in err ? String(err.message) : "Failed to save payment information.";
+    setError(msg);
+  } finally {
+    setPaymentLoading(false);
+  }
+};
+
   const inputStyle = {
     width: "100%",
     padding: "0.75rem",
@@ -169,6 +279,21 @@ export default function ProviderDashboard() {
   };
 
   const labelStyle = { fontWeight: "600", marginBottom: "0.25rem", display: "block" };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "—";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const bookingStatusColor = (booking) => {
+    if (booking?.status === "pending_payment") return { color: "#92400e", background: "#fef3c7" };
+    if (booking?.status === "cancelled") return { color: "#991b1b", background: "#fee2e2" };
+    return { color: "#065f46", background: "#d1fae5" };
+  };
 
   return (
     <>
@@ -187,6 +312,196 @@ export default function ProviderDashboard() {
           {/* ALERTS */}
           {error && <div style={{ background: "#fee2e2", color: "#991b1b", padding: "1rem", borderRadius: "8px", marginBottom: "1rem" }}>{error}</div>}
           {success && <div style={{ background: "#d1fae5", color: "#065f46", padding: "1rem", borderRadius: "8px", marginBottom: "1rem" }}>{success}</div>}
+
+
+
+
+
+
+          {/* PAYMENT INFORMATION */}
+
+          <div
+            style={{
+              background: "white",
+              padding: "2rem",
+              borderRadius: "12px",
+              marginBottom: "2rem",
+            }}
+          >
+            <h2>Payment Information</h2>
+
+            <p
+              style={{
+                color: paymentInfo.isVerified ? "#059669" : "#d97706",
+                fontWeight: "600",
+                marginBottom: "1rem",
+              }}
+            >
+              Status:
+              {paymentInfo.isVerified
+                ? " ✔ Verified"
+                : " ⏳ Pending Verification"}
+            </p>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "1rem",
+              }}
+            >
+              <div>
+                <label style={labelStyle}>Business Name</label>
+
+                <input
+                  name="businessName"
+                  value={paymentInfo.businessName}
+                  onChange={handlePaymentChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Phone</label>
+
+                <input
+                  name="phone"
+                  value={paymentInfo.phone}
+                  onChange={handlePaymentChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Preferred Provider</label>
+
+                <select
+                  name="preferredProvider"
+                  value={paymentInfo.preferredProvider}
+                  onChange={handlePaymentChange}
+                  style={inputStyle}
+                >
+                  <option value="khalti">Khalti</option>
+                  <option value="esewa">eSewa</option>
+                </select>
+              </div>
+
+              <div></div>
+
+              <div>
+                <label style={labelStyle}>Khalti Wallet ID</label>
+
+                <input
+                  name="walletId"
+                  value={paymentInfo.khalti.walletId}
+                  onChange={handleKhaltiChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Khalti Merchant ID</label>
+
+                <input
+                  name="merchantId"
+                  value={paymentInfo.khalti.merchantId}
+                  onChange={handleKhaltiChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>eSewa Merchant Code</label>
+
+                <input
+                  name="merchantCode"
+                  value={paymentInfo.esewa.merchantCode}
+                  onChange={handleEsewaChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>eSewa Phone</label>
+
+                <input
+                  name="phone"
+                  value={paymentInfo.esewa.phone}
+                  onChange={handleEsewaChange}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleSavePayment}
+              disabled={paymentLoading}
+            >
+              {paymentLoading
+                ? "Saving..."
+                : "Save Payment Information"}
+            </button>
+          </div>
+
+
+
+
+
+          {/* PROVIDER BOOKINGS */}
+          <div style={{ background: "white", padding: "2rem", borderRadius: "12px", marginBottom: "2rem" }}>
+            <h2 style={{ marginBottom: "1rem" }}>Bookings for Your Courts</h2>
+            <p style={{ color: "#6b7280", marginBottom: "1rem" }}>
+              See who booked your courts, when, and whether payment is complete.
+            </p>
+
+            {providerBookingsLoading ? (
+              <p>Loading bookings...</p>
+            ) : providerBookings.length === 0 ? (
+              <p style={{ color: "#6b7280" }}>No bookings yet for your courts.</p>
+            ) : (
+              <div style={{ display: "grid", gap: "1rem" }}>
+                {providerBookings.map((booking) => (
+                  <div key={booking._id} style={{ border: "1px solid #e5e7eb", borderRadius: "10px", padding: "1rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+                      <div>
+                        <h3 style={{ margin: 0, color: "#111827" }}>{booking.court?.name || "Court"}</h3>
+                        <p style={{ margin: "0.25rem 0 0", color: "#6b7280" }}>
+                          {booking.court?.district || "—"} · {booking.court?.address || "—"}
+                        </p>
+                      </div>
+                      <span style={{ padding: "0.35rem 0.7rem", borderRadius: "999px", fontSize: "0.85rem", fontWeight: "600", ...bookingStatusColor(booking) }}>
+                        {booking.status === "pending_payment" ? "Awaiting payment" : booking.status || "Confirmed"}
+                      </span>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.75rem", color: "#374151" }}>
+                      <div>
+                        <strong>Booked by</strong>
+                        <p style={{ margin: "0.25rem 0 0" }}>{booking.user?.name || "Unknown"}</p>
+                        <p style={{ margin: 0, color: "#6b7280", fontSize: "0.9rem" }}>{booking.user?.email || "—"}</p>
+                        <p style={{ margin: 0, color: "#6b7280", fontSize: "0.9rem" }}>{booking.user?.phone || "—"}</p>
+                      </div>
+                      <div>
+                        <strong>Date</strong>
+                        <p style={{ margin: "0.25rem 0 0" }}>{formatDate(booking.date)}</p>
+                      </div>
+                      <div>
+                        <strong>Time</strong>
+                        <p style={{ margin: "0.25rem 0 0" }}>{booking.timeSlot || "—"}</p>
+                      </div>
+                      <div>
+                        <strong>Payment</strong>
+                        <p style={{ margin: "0.25rem 0 0" }}>{booking.paymentStatus || "pending"}</p>
+                        <p style={{ margin: 0, color: "#6b7280", fontSize: "0.9rem" }}>{booking.paymentProvider || "—"}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* FORM */}
           {showForm && (

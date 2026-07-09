@@ -5,8 +5,10 @@ const path = require("path");
 const multer = require("multer");
 const mongoose = require("mongoose");
 const Court = require("../models/Court.model");
+const User = require("../models/User.model");
 const { protect, restrictTo } = require("../middleware/auth.middleware");
 const { listCourts, SORT_KEYS } = require("../services/courtQuery");
+const { hasBasicContact, getContact } = require("../utils/paymentContact");
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "uploads/"),
@@ -60,6 +62,17 @@ function mapCreateCourtErrors(err) {
   return Object.values(err.errors)
     .map((e) => e.message)
     .join(" ");
+}
+
+async function assertProviderHasPaymentContact(providerId) {
+  const provider = await User.findById(providerId).select("role paymentContact phone");
+  if (!provider || provider.role !== "provider") {
+    return "Invalid court provider";
+  }
+  if (!hasBasicContact(getContact(provider))) {
+    return "Add payment contact details (phone and wallet info) before publishing a court";
+  }
+  return null;
 }
 
 // ─── PUBLIC ────────────────────────────────────────────────────────────────
@@ -143,6 +156,9 @@ router.post(
         provider = providerId;
       }
 
+      const paymentErr = await assertProviderHasPaymentContact(provider);
+      if (paymentErr) return res.status(400).json({ message: paymentErr });
+
       const court = await Court.create({
         name,
         type,
@@ -191,6 +207,12 @@ router.put(
       }
 
       if (req.file) court.image = req.file.filename;
+
+      const activating = req.body.isActive === true || req.body.isActive === "true";
+      if (activating && court.isActive === false) {
+        const paymentErr = await assertProviderHasPaymentContact(court.provider);
+        if (paymentErr) return res.status(400).json({ message: paymentErr });
+      }
 
       await court.save();
       res.json(court);

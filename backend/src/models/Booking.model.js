@@ -21,6 +21,19 @@ const bookingSchema = new mongoose.Schema(
     paymentTxnId: { type: String, default: "" },
     khaltiPidx: { type: String, default: "" },
     totalPrice: { type: Number },
+    providerPaymentContact: {
+      phone: { type: String, default: "" },
+      businessName: { type: String, default: "" },
+      khalti: {
+        walletId: { type: String, default: "" },
+        merchantId: { type: String, default: "" },
+      },
+      esewa: {
+        merchantCode: { type: String, default: "" },
+        phone: { type: String, default: "" },
+      },
+      preferredProvider: { type: String, default: "khalti" },
+    },
   },
   { timestamps: true }
 );

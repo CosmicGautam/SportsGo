@@ -3,7 +3,9 @@ const express = require("express");
 const router = express.Router();
 const Booking = require("../models/Booking.model");
 const Court = require("../models/Court.model");
+const User = require("../models/User.model");
 const { protect, restrictTo } = require("../middleware/auth.middleware");
+const { hasBasicContact, getContact } = require("../utils/paymentContact");
 
 const bookedSlotFilter = {
   status: { $ne: "cancelled" },
@@ -63,6 +65,18 @@ router.post("/", async (req, res) => {
     const court = await Court.findById(courtId);
     if (!court) return res.status(404).json({ message: "Court not found" });
 
+    const provider = await User.findById(court.provider).select("role paymentContact phone");
+    if (!provider || provider.role !== "provider") {
+      return res.status(400).json({ message: "Court provider is not configured for bookings" });
+    }
+    const contact = getContact(provider);
+    if (!hasBasicContact(contact)) {
+      return res.status(400).json({
+        message:
+          "This court is not yet available for online payment. The provider must add payment contact details first.",
+      });
+    }
+
     const conflict = await Booking.findOne({
       court: courtId,
       date: new Date(date),
@@ -111,8 +125,8 @@ router.get("/provider", restrictTo("provider", "superadmin"), async (req, res) =
     const courtIds = courts.map((c) => c._id);
 
     const bookings = await Booking.find({ court: { $in: courtIds } })
-      .populate("court", "name district pricePerHour")
-      .populate("user", "name email")
+      .populate("court", "name district pricePerHour address")
+      .populate("user", "name email phone")
       .sort({ date: -1 });
 
     res.json(bookings);

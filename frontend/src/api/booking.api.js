@@ -85,6 +85,16 @@ export const getAllBookings = async () => {
   }
 };
 
+// Get bookings for the current provider's courts
+export const getProviderBookings = async () => {
+  try {
+    const response = await bookingsAPI.get('/provider');
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Failed to fetch provider bookings' };
+  }
+};
+
 // Cancel booking
 export const cancelBooking = async (bookingId) => {
   try {

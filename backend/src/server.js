@@ -25,6 +25,7 @@ app.use("/api/bookings", require("./routes/booking.routes"));
 app.use("/api/users", require("./routes/users.routes"));
 app.use("/api/payments", require("./routes/payment.routes"));
 app.use("/api/recommendations", require("./routes/recommendation.routes"));
+app.use("/api/provider", require("./routes/providerProfile.routes"));
 
 // Health check
 app.get("/api/health", (_, res) => res.json({ status: "ok" }));

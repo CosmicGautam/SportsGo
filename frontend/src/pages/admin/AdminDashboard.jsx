@@ -4,7 +4,11 @@ import { getAllBookings } from "../../api/booking.api.js";
 import { getAllCourts, createCourt } from "../../api/courts.api.js";
 import Header from "../../components/layout/Header";
 import Footer from "../../components/layout/Footer";
-
+import {
+  getAllPaymentInformation,
+  verifyPaymentInformation,
+  rejectPaymentInformation,
+} from "../../api/payment.api.js";
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
     totalBookings: 0,
@@ -24,9 +28,12 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [providers, setProviders] = useState([]);
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
   useEffect(() => {
     fetchStats();
+    fetchPaymentInformation();
   }, []);
 
   const fetchStats = async () => {
@@ -56,6 +63,45 @@ export default function AdminDashboard() {
       setError("Failed to load dashboard data");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPaymentInformation = async () => {
+    try {
+      setPaymentLoading(true);
+
+      const data = await getAllPaymentInformation();
+
+      setProviders(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load payment information");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const handleVerify = async (userId) => {
+    try {
+      await verifyPaymentInformation(userId);
+
+      setSuccess("Provider verified successfully.");
+
+      fetchPaymentInformation();
+    } catch (err) {
+      setError(err.message || "Failed to verify provider");
+    }
+  };
+
+  const handleReject = async (userId) => {
+    try {
+      await rejectPaymentInformation(userId);
+
+      setSuccess("Provider rejected.");
+
+      fetchPaymentInformation();
+    } catch (err) {
+      setError(err.message || "Failed to reject provider");
     }
   };
 
@@ -273,6 +319,131 @@ export default function AdminDashboard() {
                 View Courts
               </Link>
             </div>
+          </div>
+
+
+          {/* PAYMENT VERIFICATION */}
+
+          <div
+              style={{
+                  background: "white",
+                  padding: "2rem",
+                  borderRadius: "12px",
+                  marginBottom: "2rem",
+                  boxShadow: "0 4px 6px rgba(0,0,0,.1)",
+              }}
+          >
+              <h2 style={{ marginBottom: "1.5rem" }}>
+                  Provider Payment Verification
+              </h2>
+
+              {paymentLoading ? (
+                  <p>Loading payment information...</p>
+              ) : providers.length === 0 ? (
+                  <p>No providers found.</p>
+              ) : (
+                  <table
+                      style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                      }}
+                  >
+                      <thead>
+                          <tr
+                              style={{
+                                  background: "#f3f4f6",
+                              }}
+                          >
+                              <th style={{ padding: "12px" }}>Provider</th>
+                              <th>Business</th>
+                              <th>Phone</th>
+                              <th>Preferred</th>
+                              <th>Status</th>
+                              <th>Action</th>
+                          </tr>
+                      </thead>
+
+                      <tbody>
+                          {providers.map((provider) => (
+                              <tr key={provider._id}>
+                                  <td style={{ padding: "12px" }}>
+                                      {provider.name}
+                                  </td>
+
+                                  <td>
+                                      {provider.paymentContact?.businessName}
+                                  </td>
+
+                                  <td>
+                                      {provider.paymentContact?.phone}
+                                  </td>
+
+                                  <td>
+                                      {provider.paymentContact?.preferredProvider}
+                                  </td>
+
+                                  <td>
+                                      {provider.paymentContact?.isVerified ? (
+                                          <span
+                                              style={{
+                                                  color: "#059669",
+                                                  fontWeight: 700,
+                                              }}
+                                          >
+                                              Verified
+                                          </span>
+                                      ) : (
+                                          <span
+                                              style={{
+                                                  color: "#d97706",
+                                                  fontWeight: 700,
+                                              }}
+                                          >
+                                              Pending
+                                          </span>
+                                      )}
+                                  </td>
+
+                                  <td>
+                                      {!provider.paymentContact?.isVerified ? (
+                                          <>
+                                              <button
+                                                  className="btn btn-primary"
+                                                  onClick={() =>
+                                                      handleVerify(provider._id)
+                                                  }
+                                              >
+                                                  Verify
+                                              </button>
+
+                                              <button
+                                                  className="btn btn-danger"
+                                                  style={{
+                                                      marginLeft: "8px",
+                                                  }}
+                                                  onClick={() =>
+                                                      handleReject(provider._id)
+                                                  }
+                                              >
+                                                  Reject
+                                              </button>
+                                          </>
+                                      ) : (
+                                          <button
+                                              className="btn btn-secondary"
+                                              onClick={() =>
+                                                  handleReject(provider._id)
+                                              }
+                                          >
+                                              Remove Verification
+                                          </button>
+                                      )}
+                                  </td>
+                              </tr>
+                          ))}
+                      </tbody>
+                  </table>
+              )}
           </div>
 
           {/* Add Court Form */}

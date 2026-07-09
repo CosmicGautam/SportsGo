@@ -107,7 +107,7 @@ export default function Booking() {
     try {
       const { payment_url: paymentUrl } = await initiateKhalti(pendingBooking._id);
       if (paymentUrl) {
-        window.location.href = paymentUrl;
+        window.open(paymentUrl, "_blank", "noopener,noreferrer");
         return;
       }
       setError("No payment URL returned.");

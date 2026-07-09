@@ -6,9 +6,13 @@ function baseUrl() {
 }
 
 function authHeader() {
-  const key = process.env.KHALTI_SECRET_KEY;
-  if (!key) throw new Error("KHALTI_SECRET_KEY is not configured");
-  const cleaned = key.replace(/^(key|Key)\s+/i, "").trim();
+  const key = process.env.KHALTI_SECRET_KEY || process.env.KHALTI_TEST_SECRET_KEY;
+  if (!key || !String(key).trim()) {
+    throw new Error("KHALTI_SECRET_KEY is not configured");
+  }
+
+  const trimmed = String(key).trim();
+  const cleaned = trimmed.replace(/^Key\s+/i, "").trim();
   return `Key ${cleaned}`;
 }
 
@@ -26,6 +30,7 @@ async function initiatePayment({
   purchaseOrderId,
   purchaseOrderName,
   customerInfo,
+  providerContact,
 }) {
   const url = `${baseUrl()}/epayment/initiate/`;
   const amount = Math.max(1000, rupeesToPaisa(amountRupees));
@@ -39,6 +44,15 @@ async function initiatePayment({
   };
   if (customerInfo) body.customer_info = customerInfo;
 
+  if (providerContact) {
+    body.merchant_extra = {
+      provider_phone: providerContact.phone,
+      provider_business: providerContact.businessName || "",
+      khalti_wallet_id: providerContact.khalti?.walletId || "",
+      khalti_merchant_id: providerContact.khalti?.merchantId || "",
+    };
+  }
+
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -50,8 +64,14 @@ async function initiatePayment({
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = data.detail || data.error_key || JSON.stringify(data);
-    throw new Error(`Khalti initiate failed: ${msg}`);
+    const msg = data.detail || data.error_key || data.message || JSON.stringify(data);
+    const normalized = String(msg || "").trim();
+    if (normalized.toLowerCase().includes("invalid token")) {
+      throw new Error(
+        "Khalti initiate failed: the configured KHALTI_SECRET_KEY is invalid. Use a real sandbox/production secret from the Khalti dashboard."
+      );
+    }
+    throw new Error(`Khalti initiate failed: ${normalized || "Unknown error"}`);
   }
   return {
     pidx: data.pidx,

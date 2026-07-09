@@ -48,10 +48,57 @@ export const verifyEsewa = async (body) => {
   return data;
 };
 
+/**
+ * Get logged-in provider payment information
+ */
+export const getPaymentInformation = async () => {
+  const { data } = await paymentsAPI.get("/payment-contact/me");
+  return data;
+};
+
+/**
+ * Update logged-in provider payment information
+ */
+export const updatePaymentInformation = async (paymentInfo) => {
+  const { data } = await paymentsAPI.put("/payment-contact/me", paymentInfo);
+  return data;
+};
+
+/**
+ * Get all providers' payment information (Superadmin)
+ */
+export const getAllPaymentInformation = async () => {
+  const { data } = await paymentsAPI.get("/admin/payment-contacts");
+  return data;
+};
+
+/**
+ * Verify provider payment information (Superadmin)
+ */
+export const verifyPaymentInformation = async (userId) => {
+  const { data } = await paymentsAPI.patch(
+    `/admin/payment-contacts/${userId}/verify`
+  );
+  return data;
+};
+
+/**
+ * Reject provider payment information (Optional)
+ */
+export const rejectPaymentInformation = async (userId) => {
+  const { data } = await paymentsAPI.patch(
+    `/admin/payment-contacts/${userId}/reject`
+  );
+  return data;
+};
+
+
 export function submitEsewaForm(actionUrl, fields) {
   const form = document.createElement("form");
   form.method = "POST";
   form.action = actionUrl;
+  form.target = "_blank";
+  form.rel = "noopener noreferrer";
   for (const [name, value] of Object.entries(fields)) {
     const input = document.createElement("input");
     input.type = "hidden";
@@ -61,6 +108,7 @@ export function submitEsewaForm(actionUrl, fields) {
   }
   document.body.appendChild(form);
   form.submit();
+  form.remove();
 }
 
 export default paymentsAPI;

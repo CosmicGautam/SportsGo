@@ -13,6 +13,25 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
     isActive: { type: Boolean, default: true },
+    phone: { type: String, trim: true, default: "" },
+    paymentContact: {
+      phone: { type: String, trim: true, default: "" },
+      businessName: { type: String, trim: true, default: "" },
+      khalti: {
+        walletId: { type: String, trim: true, default: "" },
+        merchantId: { type: String, trim: true, default: "" },
+      },
+      esewa: {
+        merchantCode: { type: String, trim: true, default: "" },
+        phone: { type: String, trim: true, default: "" },
+      },
+      preferredProvider: {
+        type: String,
+        enum: ["khalti", "esewa"],
+        default: "khalti",
+      },
+      isVerified: { type: Boolean, default: false },
+    },
   },
   { timestamps: true }
 );

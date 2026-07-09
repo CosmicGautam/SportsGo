@@ -4,7 +4,7 @@ import cors from "cors";
 import authRoutes from "./routes/auth.routes.js";
 import bookingRoutes from "./routes/booking.routes.js";
 import courtRoutes from "./routes/court.routes.js";
-
+import paymentsAPI from "../../frontend/src/api/payment.api.js";
 const app = express();
 
 app.use(cors({
@@ -22,6 +22,7 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/courts", courtRoutes);
+app.use("/api/payment", paymentsAPI);
 
 
 app.use((req, res) => {

@@ -52,7 +52,7 @@ export default function MyBookings() {
     setError("");
     try {
       const { payment_url: paymentUrl } = await initiateKhalti(bookingId);
-      if (paymentUrl) window.location.href = paymentUrl;
+      if (paymentUrl) window.open(paymentUrl, "_blank", "noopener,noreferrer");
     } catch (err) {
       setError(err?.message || "Could not start Khalti");
     } finally {
@@ -102,6 +102,174 @@ export default function MyBookings() {
       return { background: "#fee2e2", color: "#991b1b" };
     }
     return { background: "#d1fae5", color: "#065f46" };
+  };
+
+  const isCancelled = (booking) => booking?.status === "cancelled";
+  const isUpcoming = (booking) => {
+    const bookingDate = new Date(booking?.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const normalizedBookingDate = new Date(bookingDate);
+    normalizedBookingDate.setHours(0, 0, 0, 0);
+    return normalizedBookingDate >= today && !isCancelled(booking);
+  };
+  const isPast = (booking) => !isCancelled(booking) && !isUpcoming(booking);
+
+  const sortBookings = (list) =>
+    [...list].sort((a, b) => {
+      if (a.status === "pending_payment" && b.status !== "pending_payment") return -1;
+      if (a.status !== "pending_payment" && b.status === "pending_payment") return 1;
+      return new Date(a.date) - new Date(b.date);
+    });
+
+  const upcomingBookings = sortBookings(bookings.filter(isUpcoming));
+  const pastBookings = sortBookings(bookings.filter(isPast));
+  const cancelledBookings = sortBookings(bookings.filter(isCancelled));
+
+  const renderBookingCard = (booking) => (
+    <div
+      key={booking._id}
+      className="booking-card"
+      style={{
+        background: "white",
+        padding: "1.5rem",
+        borderRadius: "12px",
+        boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+      }}
+    >
+      <div
+        className="booking-header"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "1rem",
+          paddingBottom: "1rem",
+          borderBottom: "2px solid #e5e7eb",
+        }}
+      >
+        <h3 style={{ color: "#1f2937", margin: 0 }}>{booking.court?.name || "Court"}</h3>
+        <span
+          className={`status ${booking.status || "confirmed"}`}
+          style={{
+            padding: "0.375rem 0.875rem",
+            borderRadius: "20px",
+            fontSize: "0.875rem",
+            fontWeight: "600",
+            textTransform: "uppercase",
+            ...statusStyle(booking),
+          }}
+        >
+          {booking.status === "pending_payment"
+            ? "Awaiting payment"
+            : booking.status || "Confirmed"}
+        </span>
+      </div>
+
+      <div className="booking-details" style={{ margin: "1rem 0" }}>
+        <p style={{ margin: "0.5rem 0", color: "#374151" }}>
+          <strong>Date:</strong> {formatDate(booking.date)}
+        </p>
+        <p style={{ margin: "0.5rem 0", color: "#374151" }}>
+          <strong>Time:</strong> {booking.timeSlot}
+        </p>
+        <p style={{ margin: "0.5rem 0", color: "#374151" }}>
+          <strong>Location:</strong> {locationLine(booking.court)}
+        </p>
+        <p style={{ margin: "0.5rem 0", color: "#374151" }}>
+          <strong>Price:</strong> NPR {booking.court?.pricePerHour ?? booking.totalPrice ?? "N/A"}
+        </p>
+        {booking.paymentProvider ? (
+          <p style={{ margin: "0.5rem 0", color: "#6b7280", fontSize: "0.9rem" }}>
+            Payment: {booking.paymentProvider}
+            {booking.paymentTxnId ? ` · ${booking.paymentTxnId}` : ""}
+          </p>
+        ) : null}
+      </div>
+
+      <div
+        className="booking-actions"
+        style={{
+          marginTop: "1rem",
+          paddingTop: "1rem",
+          borderTop: "2px solid #e5e7eb",
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "0.5rem",
+        }}
+      >
+        {booking.status === "pending_payment" && (
+          <>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={payBusy === booking._id}
+              onClick={() => handlePayKhalti(booking._id)}
+            >
+              {payBusy === booking._id ? "…" : "Pay with Khalti"}
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={payBusy === booking._id}
+              onClick={() => handlePayEsewa(booking._id)}
+            >
+              Pay with eSewa
+            </button>
+          </>
+        )}
+        {booking.status !== "cancelled" && booking.status !== "pending_payment" && (
+          <button
+            type="button"
+            className="btn-cancel"
+            onClick={() => handleCancel(booking._id)}
+            style={{
+              padding: "0.625rem 1.25rem",
+              background: "#ef4444",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontWeight: "600",
+              transition: "background 0.3s",
+            }}
+            onMouseOver={(e) => (e.target.style.background = "#dc2626")}
+            onMouseOut={(e) => (e.target.style.background = "#ef4444")}
+          >
+            Cancel Booking
+          </button>
+        )}
+        {booking.status === "pending_payment" && (
+          <button
+            type="button"
+            onClick={() => handleCancel(booking._id)}
+            style={{
+              padding: "0.625rem 1.25rem",
+              background: "transparent",
+              color: "#6b7280",
+              border: "2px solid #e5e7eb",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontWeight: "600",
+            }}
+          >
+            Cancel reservation
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderSection = (title, items, emptyText) => {
+    if (!items.length) return null;
+    return (
+      <div style={{ marginBottom: "2rem" }}>
+        <h2 style={{ marginBottom: "1rem", color: "#1f2937" }}>{title}</h2>
+        <div className="bookings-list" style={{ display: "grid", gap: "1.5rem" }}>
+          {items.map(renderBookingCard)}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -163,141 +331,11 @@ export default function MyBookings() {
               </a>
             </div>
           ) : (
-            <div className="bookings-list" style={{ display: "grid", gap: "1.5rem" }}>
-              {bookings.map((booking) => (
-                <div
-                  key={booking._id}
-                  className="booking-card"
-                  style={{
-                    background: "white",
-                    padding: "1.5rem",
-                    borderRadius: "12px",
-                    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-                  }}
-                >
-                  <div
-                    className="booking-header"
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "1rem",
-                      paddingBottom: "1rem",
-                      borderBottom: "2px solid #e5e7eb",
-                    }}
-                  >
-                    <h3 style={{ color: "#1f2937", margin: 0 }}>{booking.court?.name || "Court"}</h3>
-                    <span
-                      className={`status ${booking.status || "confirmed"}`}
-                      style={{
-                        padding: "0.375rem 0.875rem",
-                        borderRadius: "20px",
-                        fontSize: "0.875rem",
-                        fontWeight: "600",
-                        textTransform: "uppercase",
-                        ...statusStyle(booking),
-                      }}
-                    >
-                      {booking.status === "pending_payment"
-                        ? "Awaiting payment"
-                        : booking.status || "Confirmed"}
-                    </span>
-                  </div>
-
-                  <div className="booking-details" style={{ margin: "1rem 0" }}>
-                    <p style={{ margin: "0.5rem 0", color: "#374151" }}>
-                      <strong>Date:</strong> {formatDate(booking.date)}
-                    </p>
-                    <p style={{ margin: "0.5rem 0", color: "#374151" }}>
-                      <strong>Time:</strong> {booking.timeSlot}
-                    </p>
-                    <p style={{ margin: "0.5rem 0", color: "#374151" }}>
-                      <strong>Location:</strong> {locationLine(booking.court)}
-                    </p>
-                    <p style={{ margin: "0.5rem 0", color: "#374151" }}>
-                      <strong>Price:</strong> NPR {booking.court?.pricePerHour ?? booking.totalPrice ?? "N/A"}
-                    </p>
-                    {booking.paymentProvider ? (
-                      <p style={{ margin: "0.5rem 0", color: "#6b7280", fontSize: "0.9rem" }}>
-                        Payment: {booking.paymentProvider}
-                        {booking.paymentTxnId ? ` · ${booking.paymentTxnId}` : ""}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div
-                    className="booking-actions"
-                    style={{
-                      marginTop: "1rem",
-                      paddingTop: "1rem",
-                      borderTop: "2px solid #e5e7eb",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "0.5rem",
-                    }}
-                  >
-                    {booking.status === "pending_payment" && (
-                      <>
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          disabled={payBusy === booking._id}
-                          onClick={() => handlePayKhalti(booking._id)}
-                        >
-                          {payBusy === booking._id ? "…" : "Pay with Khalti"}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          disabled={payBusy === booking._id}
-                          onClick={() => handlePayEsewa(booking._id)}
-                        >
-                          Pay with eSewa
-                        </button>
-                      </>
-                    )}
-                    {booking.status !== "cancelled" && booking.status !== "pending_payment" && (
-                      <button
-                        type="button"
-                        className="btn-cancel"
-                        onClick={() => handleCancel(booking._id)}
-                        style={{
-                          padding: "0.625rem 1.25rem",
-                          background: "#ef4444",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                          fontWeight: "600",
-                          transition: "background 0.3s",
-                        }}
-                        onMouseOver={(e) => (e.target.style.background = "#dc2626")}
-                        onMouseOut={(e) => (e.target.style.background = "#ef4444")}
-                      >
-                        Cancel Booking
-                      </button>
-                    )}
-                    {booking.status === "pending_payment" && (
-                      <button
-                        type="button"
-                        onClick={() => handleCancel(booking._id)}
-                        style={{
-                          padding: "0.625rem 1.25rem",
-                          background: "transparent",
-                          color: "#6b7280",
-                          border: "2px solid #e5e7eb",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                          fontWeight: "600",
-                        }}
-                      >
-                        Cancel reservation
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <>
+              {renderSection("Upcoming bookings", upcomingBookings, "No upcoming bookings")}
+              {renderSection("Past bookings", pastBookings, "No past bookings")}
+              {renderSection("Cancelled bookings", cancelledBookings, "No cancelled bookings")}
+            </>
           )}
         </div>
       </section>
