@@ -86,10 +86,6 @@ export default function ProviderDashboard() {
       walletId:"",
       merchantId:"",
     },
-    esewa: {
-      merchantCode: "",
-      phone: "",
-    },
     isVerified: false,
   });
   const [paymentLoading, setPaymentLoading] = useState(false);
@@ -108,7 +104,6 @@ export default function ProviderDashboard() {
         if (!mounted) return;
         setPaymentInfo((prev) => ({ ...prev, ...data }));
       } catch (err) {
-        // don't treat as fatal here
         setError((e) => e || (err?.message ? String(err.message) : "Failed to load payment info"));
       } finally {
         setPaymentLoading(false);
@@ -129,7 +124,6 @@ export default function ProviderDashboard() {
     setSuccess("");
   };
 
-  /** New court: clear fields and open the form (do not use resetForm — that hides the form). */
   const openAddForm = () => {
     setForm(EMPTY_FORM);
     setPreview("");
@@ -207,13 +201,13 @@ export default function ProviderDashboard() {
   };
 
   const handleDelete = async (courtId, courtName) => {
-    if (!window.confirm(`Remove "${courtName}"?`)) return;
+    if (!window.confirm(`Delete "${courtName}"?`)) return;
     try {
-      await deleteCourt(courtId);
-      setSuccess("Court removed.");
+      const res = await deleteCourt(courtId);
+      setSuccess(res?.message || "Court deleted successfully.");
       fetchCourts();
     } catch (err) {
-      setError(err.message || "Failed to remove court");
+      setError(err.message || "Failed to delete court");
     }
   };
 
@@ -235,18 +229,6 @@ export default function ProviderDashboard() {
       ...prev,
       khalti: {
         ...prev.khalti,
-        [name]: value,
-      },
-    }));
-  };
-
-  const handleEsewaChange = (e) => {
-    const { name, value } = e.target;
-
-    setPaymentInfo((prev) => ({
-      ...prev,
-      esewa: {
-        ...prev.esewa,
         [name]: value,
       },
     }));
@@ -314,7 +296,76 @@ const handleSavePayment = async () => {
           {success && <div style={{ background: "#d1fae5", color: "#065f46", padding: "1rem", borderRadius: "8px", marginBottom: "1rem" }}>{success}</div>}
 
 
+          {/* FORM */}
+          {showForm && (
+            <form onSubmit={handleSubmit} style={{ background: "white", padding: "2rem", borderRadius: "12px", marginBottom: "2rem" }}>
+              <h2>{editingId ? "Edit Court" : "Add Court"}</h2>
 
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <div>
+                  <label style={labelStyle}>Court Name *</label>
+                  <input required value={form.name} onChange={f("name")} style={inputStyle} />
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Sport Type *</label>
+                  <select value={form.type} onChange={f("type")} style={inputStyle}>
+                    {COURT_TYPES.map((t) => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={labelStyle}>District *</label>
+                  <select value={form.district} onChange={f("district")} style={inputStyle}>
+                    {DISTRICTS.map((d) => <option key={d}>{d}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Price per Hour *</label>
+                  <input required type="number" min="0" value={form.pricePerHour} onChange={f("pricePerHour")} style={inputStyle} />
+                </div>
+
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label style={labelStyle}>Address</label>
+                  <input value={form.address} onChange={f("address")} style={inputStyle} />
+                </div>
+
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label style={labelStyle}>Description *</label>
+                  <textarea required value={form.description} onChange={f("description")} style={{ ...inputStyle, resize: "vertical" }} rows={3} />
+                </div>
+
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label style={labelStyle}>Amenities (comma separated)</label>
+                  <input value={form.amenities} onChange={f("amenities")} style={inputStyle} />
+                </div>
+
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label style={labelStyle}>Court photo</label>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={handleFileChange}
+                    style={{ marginBottom: "1rem" }}
+                  />
+                  <p style={{ fontSize: "0.875rem", color: "#6b7280", marginBottom: "0.75rem" }}>
+                    {editingId
+                      ? "Upload a new image to replace the current court photo (optional)."
+                      : "Upload a photo for this court listing (optional but recommended). JPEG, PNG, WebP, or GIF."}
+                  </p>
+                  {preview ? (
+                    <img src={preview} alt="" style={{ width: "180px", maxHeight: "120px", objectFit: "cover", borderRadius: "8px" }} />
+                  ) : null}
+                </div>
+              </div>
+
+              <div style={{ marginTop: "1rem", display: "flex", gap: "1rem" }}>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? "Saving..." : "Save"}</button>
+                <button type="button" className="btn btn-secondary" onClick={resetForm}>Cancel</button>
+              </div>
+            </form>
+          )}
 
 
 
@@ -382,7 +433,6 @@ const handleSavePayment = async () => {
                   style={inputStyle}
                 >
                   <option value="khalti">Khalti</option>
-                  <option value="esewa">eSewa</option>
                 </select>
               </div>
 
@@ -410,27 +460,6 @@ const handleSavePayment = async () => {
                 />
               </div>
 
-              <div>
-                <label style={labelStyle}>eSewa Merchant Code</label>
-
-                <input
-                  name="merchantCode"
-                  value={paymentInfo.esewa.merchantCode}
-                  onChange={handleEsewaChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>eSewa Phone</label>
-
-                <input
-                  name="phone"
-                  value={paymentInfo.esewa.phone}
-                  onChange={handleEsewaChange}
-                  style={inputStyle}
-                />
-              </div>
             </div>
 
             <button
@@ -503,76 +532,7 @@ const handleSavePayment = async () => {
             )}
           </div>
 
-          {/* FORM */}
-          {showForm && (
-            <form onSubmit={handleSubmit} style={{ background: "white", padding: "2rem", borderRadius: "12px", marginBottom: "2rem" }}>
-              <h2>{editingId ? "Edit Court" : "Add Court"}</h2>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                <div>
-                  <label style={labelStyle}>Court Name *</label>
-                  <input required value={form.name} onChange={f("name")} style={inputStyle} />
-                </div>
-
-                <div>
-                  <label style={labelStyle}>Sport Type *</label>
-                  <select value={form.type} onChange={f("type")} style={inputStyle}>
-                    {COURT_TYPES.map((t) => <option key={t}>{t}</option>)}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={labelStyle}>District *</label>
-                  <select value={form.district} onChange={f("district")} style={inputStyle}>
-                    {DISTRICTS.map((d) => <option key={d}>{d}</option>)}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={labelStyle}>Price per Hour *</label>
-                  <input required type="number" min="0" value={form.pricePerHour} onChange={f("pricePerHour")} style={inputStyle} />
-                </div>
-
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label style={labelStyle}>Address</label>
-                  <input value={form.address} onChange={f("address")} style={inputStyle} />
-                </div>
-
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label style={labelStyle}>Description *</label>
-                  <textarea required value={form.description} onChange={f("description")} style={{ ...inputStyle, resize: "vertical" }} rows={3} />
-                </div>
-
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label style={labelStyle}>Amenities (comma separated)</label>
-                  <input value={form.amenities} onChange={f("amenities")} style={inputStyle} />
-                </div>
-
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label style={labelStyle}>Court photo</label>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    onChange={handleFileChange}
-                    style={{ marginBottom: "1rem" }}
-                  />
-                  <p style={{ fontSize: "0.875rem", color: "#6b7280", marginBottom: "0.75rem" }}>
-                    {editingId
-                      ? "Upload a new image to replace the current court photo (optional)."
-                      : "Upload a photo for this court listing (optional but recommended). JPEG, PNG, WebP, or GIF."}
-                  </p>
-                  {preview ? (
-                    <img src={preview} alt="" style={{ width: "180px", maxHeight: "120px", objectFit: "cover", borderRadius: "8px" }} />
-                  ) : null}
-                </div>
-              </div>
-
-              <div style={{ marginTop: "1rem", display: "flex", gap: "1rem" }}>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? "Saving..." : "Save"}</button>
-                <button type="button" className="btn btn-secondary" onClick={resetForm}>Cancel</button>
-              </div>
-            </form>
-          )}
 
           {/* COURT LIST */}
           {loading ? (

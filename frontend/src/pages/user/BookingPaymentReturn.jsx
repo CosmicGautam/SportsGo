@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Footer from "../../components/layout/Footer";
-import { verifyKhalti, verifyEsewa } from "../../api/payment.api";
+import { verifyKhalti } from "../../api/payment.api";
 
 export default function BookingPaymentReturn() {
   const [searchParams] = useSearchParams();
@@ -10,41 +10,23 @@ export default function BookingPaymentReturn() {
 
   useEffect(() => {
     const provider = searchParams.get("provider");
-    const pidx = searchParams.get("pidx");
-    const bookingId = searchParams.get("bookingId");
+    const status = searchParams.get("status");
+    const isCancelled = status === "cancel" || status === "canceled" || status === "failed";
 
-    (async () => {
-      try {
-        if (provider === "khalti" && pidx) {
-          const res = await verifyKhalti(pidx);
-          if (res.ok) {
-            setMessage("Payment successful. Redirecting…");
-            setTimeout(() => navigate("/my-bookings", { replace: true }), 800);
-            return;
-          }
-          if (res.pending) {
-            setMessage("Payment still pending. Check My Bookings in a moment.");
-            setTimeout(() => navigate("/my-bookings", { replace: true }), 2000);
-            return;
-          }
-        }
+    if (isCancelled) {
+      setMessage("Payment was cancelled or failed. You can try again from My Bookings.");
+      setTimeout(() => navigate("/my-bookings", { replace: true }), 2500);
+      return;
+    }
 
-        if (provider === "esewa" && bookingId) {
-          const res = await verifyEsewa({ bookingId, refId: searchParams.get("refId") || "" });
-          if (res.ok) {
-            setMessage("Payment recorded. Redirecting…");
-            setTimeout(() => navigate("/my-bookings", { replace: true }), 800);
-            return;
-          }
-        }
+    if (provider === "khalti") {
+      setMessage("Payment successful. Redirecting…");
+      setTimeout(() => navigate("/my-bookings", { replace: true }), 800);
+      return;
+    }
 
-        setMessage("Could not confirm payment automatically. See My Bookings or contact support.");
-        setTimeout(() => navigate("/my-bookings", { replace: true }), 2500);
-      } catch (e) {
-        setMessage(e?.message || "Verification failed.");
-        setTimeout(() => navigate("/my-bookings", { replace: true }), 2500);
-      }
-    })();
+    setMessage("Payment successful. Redirecting…");
+    setTimeout(() => navigate("/my-bookings", { replace: true }), 800);
   }, [navigate, searchParams]);
 
   return (

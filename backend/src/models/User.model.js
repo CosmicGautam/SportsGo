@@ -21,13 +21,9 @@ const userSchema = new mongoose.Schema(
         walletId: { type: String, trim: true, default: "" },
         merchantId: { type: String, trim: true, default: "" },
       },
-      esewa: {
-        merchantCode: { type: String, trim: true, default: "" },
-        phone: { type: String, trim: true, default: "" },
-      },
       preferredProvider: {
         type: String,
-        enum: ["khalti", "esewa"],
+        enum: ["khalti"],
         default: "khalti",
       },
       isVerified: { type: Boolean, default: false },

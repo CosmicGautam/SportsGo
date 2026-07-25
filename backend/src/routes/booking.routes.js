@@ -98,7 +98,7 @@ router.post("/", async (req, res) => {
     await booking.populate("court", "name district pricePerHour address description");
     res.status(201).json({
       booking,
-      payment: { providers: ["khalti", "esewa"] },
+      payment: { providers: ["khalti"] },
     });
   } catch (err) {
     res.status(400).json({ message: err.message || "Failed to create booking" });

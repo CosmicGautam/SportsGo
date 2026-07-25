@@ -231,9 +231,8 @@ router.delete("/:id", protect, restrictTo("provider", "superadmin"), async (req,
       return res.status(403).json({ message: "You can only delete your own courts" });
     }
 
-    court.isActive = false;
-    await court.save();
-    res.json({ message: "Court removed" });
+    await Court.findByIdAndDelete(req.params.id);
+    res.json({ message: "Court deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: "Failed to delete court" });
   }

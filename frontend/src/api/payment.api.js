@@ -33,18 +33,9 @@ export const initiateKhalti = async (bookingId) => {
   return data;
 };
 
-export const verifyKhalti = async (pidx) => {
-  const { data } = await paymentsAPI.post("/khalti/verify", { pidx });
-  return data;
-};
-
-export const initiateEsewa = async (bookingId) => {
-  const { data } = await paymentsAPI.post("/esewa/initiate", { bookingId });
-  return data;
-};
-
-export const verifyEsewa = async (body) => {
-  const { data } = await paymentsAPI.post("/esewa/verify", body);
+export const verifyKhalti = async (payload) => {
+  const body = typeof payload === "string" ? { pidx: payload } : payload || {};
+  const { data } = await paymentsAPI.post("/khalti/verify", body);
   return data;
 };
 
@@ -92,23 +83,5 @@ export const rejectPaymentInformation = async (userId) => {
   return data;
 };
 
-
-export function submitEsewaForm(actionUrl, fields) {
-  const form = document.createElement("form");
-  form.method = "POST";
-  form.action = actionUrl;
-  form.target = "_blank";
-  form.rel = "noopener noreferrer";
-  for (const [name, value] of Object.entries(fields)) {
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = name;
-    input.value = value != null ? String(value) : "";
-    form.appendChild(input);
-  }
-  document.body.appendChild(form);
-  form.submit();
-  form.remove();
-}
 
 export default paymentsAPI;

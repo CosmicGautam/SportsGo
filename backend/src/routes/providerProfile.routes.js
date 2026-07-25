@@ -55,14 +55,13 @@ router.patch("/payment-contact", async (req, res) => {
     const existing = getContact(user);
 
     if (req.body.preferredProvider && !PAYMENT_PROVIDERS.includes(req.body.preferredProvider)) {
-      return res.status(400).json({ message: "preferredProvider must be khalti or esewa" });
+      return res.status(400).json({ message: "preferredProvider must be khalti" });
     }
 
     user.paymentContact = {
       ...existing,
       ...incoming,
       khalti: { ...existing.khalti, ...incoming.khalti },
-      esewa: { ...existing.esewa, ...incoming.esewa },
     };
 
     if (req.user.role !== "superadmin") {

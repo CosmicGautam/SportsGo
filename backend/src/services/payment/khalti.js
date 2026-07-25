@@ -5,6 +5,14 @@ function baseUrl() {
   return process.env.KHALTI_ENV === "production" ? KHALTI_PRODUCTION : KHALTI_SANDBOX;
 }
 
+function resolveClientBaseUrl(env = process.env) {
+  return env.CLIENT_URL || env.FRONTEND_URL || "http://localhost:5173";
+}
+
+function isKhaltiCompletedStatus(status) {
+  return String(status || "").trim().toLowerCase() === "completed";
+}
+
 function authHeader() {
   const key = process.env.KHALTI_SECRET_KEY || process.env.KHALTI_TEST_SECRET_KEY;
   if (!key || !String(key).trim()) {
@@ -105,4 +113,6 @@ module.exports = {
   initiatePayment,
   lookupPayment,
   rupeesToPaisa,
+  resolveClientBaseUrl,
+  isKhaltiCompletedStatus,
 };

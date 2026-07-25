@@ -16,8 +16,8 @@ const bookingSchema = new mongoose.Schema(
       enum: ["pending", "paid", "failed", "refunded"],
       default: "pending",
     },
-    paymentProvider: { type: String, enum: ["khalti", "esewa", ""], default: "" },
-    /** Khalti pidx or eSewa transaction reference */
+    paymentProvider: { type: String, enum: ["khalti", ""], default: "" },
+    /** Khalti pidx */
     paymentTxnId: { type: String, default: "" },
     khaltiPidx: { type: String, default: "" },
     totalPrice: { type: Number },
@@ -27,10 +27,6 @@ const bookingSchema = new mongoose.Schema(
       khalti: {
         walletId: { type: String, default: "" },
         merchantId: { type: String, default: "" },
-      },
-      esewa: {
-        merchantCode: { type: String, default: "" },
-        phone: { type: String, default: "" },
       },
       preferredProvider: { type: String, default: "khalti" },
     },

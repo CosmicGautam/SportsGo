@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getCourtById, courtImageUrl } from "../../api/courts.api";
 import { getSlots, createBooking } from "../../api/booking.api";
-import { initiateKhalti, initiateEsewa, submitEsewaForm } from "../../api/payment.api";
+import { initiateKhalti } from "../../api/payment.api";
 import { useAuth } from "../../context/AuthContext";
 import "../../styles/booking.css";
 import Footer from "../../components/layout/Footer";
@@ -113,30 +113,6 @@ export default function Booking() {
       setError("No payment URL returned.");
     } catch (err) {
       const msg = err?.message || "Khalti could not start. Check server keys (KHALTI_SECRET_KEY).";
-      setError(msg);
-    } finally {
-      setPayBusy(false);
-    }
-  };
-
-  const handleEsewaPay = async () => {
-    if (!pendingBooking?._id) return;
-    setPayBusy(true);
-    setError("");
-    try {
-      const data = await initiateEsewa(pendingBooking._id);
-      if (!data.configured && data.message) {
-        setError(data.message);
-        return;
-      }
-      if (data.actionUrl && data.fields) {
-        submitEsewaForm(data.actionUrl, data.fields);
-        return;
-      }
-      setError("eSewa is not configured.");
-    } catch (err) {
-      const msg =
-        err?.message || "eSewa could not start. Set ESEWA_* environment variables or use Khalti.";
       setError(msg);
     } finally {
       setPayBusy(false);
@@ -353,10 +329,8 @@ export default function Booking() {
                     type="button"
                     className="btn btn-secondary"
                     disabled={payBusy}
-                    onClick={handleEsewaPay}
                     style={{ flex: "1 1 140px" }}
                   >
-                    eSewa
                   </button>
                 </div>
                 <p style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: "0.75rem" }}>

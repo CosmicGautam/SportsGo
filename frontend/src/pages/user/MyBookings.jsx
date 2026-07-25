@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { getUserBookings, cancelBooking } from "../../api/booking.api";
-import { initiateKhalti, initiateEsewa, submitEsewaForm } from "../../api/payment.api";
+import { initiateKhalti } from "../../api/payment.api";
 import Footer from "../../components/layout/Footer";
 import "../../styles/booking.css";
 
@@ -55,25 +55,6 @@ export default function MyBookings() {
       if (paymentUrl) window.open(paymentUrl, "_blank", "noopener,noreferrer");
     } catch (err) {
       setError(err?.message || "Could not start Khalti");
-    } finally {
-      setPayBusy(null);
-    }
-  };
-
-  const handlePayEsewa = async (bookingId) => {
-    setPayBusy(bookingId);
-    setError("");
-    try {
-      const data = await initiateEsewa(bookingId);
-      if (data.message && data.configured === false) {
-        setError(data.message);
-        return;
-      }
-      if (data.actionUrl && data.fields) {
-        submitEsewaForm(data.actionUrl, data.fields);
-      }
-    } catch (err) {
-      setError(err?.message || "Could not start eSewa");
     } finally {
       setPayBusy(null);
     }
@@ -207,14 +188,6 @@ export default function MyBookings() {
               onClick={() => handlePayKhalti(booking._id)}
             >
               {payBusy === booking._id ? "…" : "Pay with Khalti"}
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              disabled={payBusy === booking._id}
-              onClick={() => handlePayEsewa(booking._id)}
-            >
-              Pay with eSewa
             </button>
           </>
         )}

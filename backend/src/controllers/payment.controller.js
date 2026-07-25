@@ -37,7 +37,6 @@ exports.updateMyPaymentInformation = async (req, res) => {
       phone,
       preferredProvider,
       khalti,
-      esewa,
     } = req.body;
 
     const user = await User.findById(req.user._id);
@@ -56,11 +55,6 @@ exports.updateMyPaymentInformation = async (req, res) => {
       khalti: {
         walletId: khalti?.walletId || "",
         merchantId: khalti?.merchantId || "",
-      },
-
-      esewa: {
-        merchantCode: esewa?.merchantCode || "",
-        phone: esewa?.phone || "",
       },
 
       // Any edit requires re-verification

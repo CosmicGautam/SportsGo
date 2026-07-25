@@ -63,7 +63,6 @@ router.patch("/:id/payment-contact", async (req, res) => {
       ...existing,
       ...incoming,
       khalti: { ...existing.khalti, ...incoming.khalti },
-      esewa: { ...existing.esewa, ...incoming.esewa },
       isVerified: req.body.isVerified !== undefined ? Boolean(req.body.isVerified) : existing.isVerified,
     };
     if (incoming.phone) user.phone = incoming.phone;

@@ -46,7 +46,7 @@ function cosineSimilarity(a, b) {
 }
 
 /**
- * Preference vector from user's paid (or legacy confirmed) bookings.
+ * Preference vector from user's paid bookings.
  */
 async function buildUserPreferenceVector(userId) {
   const bookings = await Booking.find({

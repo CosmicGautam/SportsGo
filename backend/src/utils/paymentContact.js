@@ -1,18 +1,13 @@
-const PAYMENT_PROVIDERS = ["khalti", "esewa"];
+const PAYMENT_PROVIDERS = ["khalti"];
 
 function normalizePaymentContact(body = {}) {
   const khalti = body.khalti || {};
-  const esewa = body.esewa || {};
   return {
     phone: body.phone != null ? String(body.phone).trim() : "",
     businessName: body.businessName != null ? String(body.businessName).trim() : "",
     khalti: {
       walletId: khalti.walletId != null ? String(khalti.walletId).trim() : "",
       merchantId: khalti.merchantId != null ? String(khalti.merchantId).trim() : "",
-    },
-    esewa: {
-      merchantCode: esewa.merchantCode != null ? String(esewa.merchantCode).trim() : "",
-      phone: esewa.phone != null ? String(esewa.phone).trim() : "",
     },
     preferredProvider: PAYMENT_PROVIDERS.includes(body.preferredProvider)
       ? body.preferredProvider
@@ -50,16 +45,6 @@ function validateForProvider(contact, provider) {
     }
   }
 
-  if (provider === "esewa") {
-    if (!contact.esewa?.merchantCode) {
-      return {
-        ok: false,
-        message:
-          "This court is not yet available for online payment. Provider must add an eSewa merchant code.",
-      };
-    }
-  }
-
   return { ok: true };
 }
 
@@ -69,7 +54,6 @@ function snapshotContact(contact) {
     phone: c.phone,
     businessName: c.businessName,
     khalti: { ...c.khalti },
-    esewa: { ...c.esewa },
     preferredProvider: c.preferredProvider,
     isVerified: c.isVerified,
   };
