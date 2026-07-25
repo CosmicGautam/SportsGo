@@ -38,7 +38,7 @@ async function loadBookingForPayment(bookingId, userId) {
 // POST /api/payments/khalti/initiate  { bookingId }
 router.post("/khalti/initiate", async (req, res) => {
   try {
-    const { bookingId } = req.body;
+    const bookingId = req.body.bookingId || req.query.bookingId;
     if (!bookingId) return res.status(400).json({ message: "bookingId required" });
 
     const { booking, error } = await loadBookingForPayment(bookingId, req.user._id);
@@ -60,7 +60,7 @@ router.post("/khalti/initiate", async (req, res) => {
       const fakePidx = `dev-${booking._id}-${Date.now()}`;
       init = {
         pidx: fakePidx,
-        payment_url: `${clientUrl}/booking/payment-return?provider=khalti&pidx=${fakePidx}`,
+        payment_url: `${clientUrl}/booking/payment-return?provider=khalti&pidx=${fakePidx}&bookingId=${booking._id}`,
       };
     } else {
       init = await khalti.initiatePayment({
@@ -97,21 +97,26 @@ router.post("/khalti/initiate", async (req, res) => {
   }
 });
 
-// POST /api/payments/khalti/verify  { pidx }
+// POST /api/payments/khalti/verify  { pidx, bookingId }
 router.post("/khalti/verify", async (req, res) => {
   try {
     const pidx = req.body.pidx || req.query.pidx;
     const bookingId = req.body.bookingId || req.query.bookingId;
 
     let booking = null;
-    if (pidx) {
-      booking = await Booking.findOne({ khaltiPidx: pidx, user: req.user._id });
-    }
-    if (!booking && bookingId) {
+    if (bookingId) {
       booking = await Booking.findOne({ _id: bookingId, user: req.user._id });
+    }
+    if (!booking && pidx) {
+      booking = await Booking.findOne({ khaltiPidx: pidx, user: req.user._id });
     }
 
     if (!booking) return res.status(404).json({ message: "Booking not found for this payment" });
+
+    // If already confirmed in database previously, respond with success
+    if (booking.status === "confirmed" && booking.paymentStatus === "paid") {
+      return res.json({ ok: true, booking, khaltiStatus: "Completed" });
+    }
 
     if (process.env.NODE_ENV !== "production" && process.env.KHALTI_DEV_BYPASS === "1") {
       booking.paymentStatus = "paid";
@@ -128,17 +133,18 @@ router.post("/khalti/verify", async (req, res) => {
     }
 
     const lookup = await khalti.lookupPayment(lookupPidx);
+    const normalizedStatus = String(lookup.status || "").trim().toLowerCase();
 
-    if (khalti.isKhaltiCompletedStatus(lookup.status)) {
+    if (normalizedStatus === "completed" || khalti.isKhaltiCompletedStatus(lookup.status)) {
       booking.paymentStatus = "paid";
       booking.status = "confirmed";
-      booking.paymentTxnId = lookup.transaction_id || booking.paymentTxnId;
+      booking.paymentTxnId = lookup.transaction_id || lookup.idx || booking.paymentTxnId;
       await booking.save();
       await booking.populate("court", "name district pricePerHour address");
       return res.json({ ok: true, booking, khaltiStatus: lookup.status });
     }
 
-    if (lookup.status === "Pending" || lookup.status === "Initiated") {
+    if (normalizedStatus === "pending" || normalizedStatus === "initiated") {
       return res.json({ ok: false, pending: true, khaltiStatus: lookup.status });
     }
 

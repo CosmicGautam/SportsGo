@@ -9,24 +9,69 @@ export default function BookingPaymentReturn() {
   const [message, setMessage] = useState("Confirming your payment…");
 
   useEffect(() => {
+    let isMounted = true;
+
     const provider = searchParams.get("provider");
     const status = searchParams.get("status");
-    const isCancelled = status === "cancel" || status === "canceled" || status === "failed";
+    const pidx = searchParams.get("pidx");
+    const bookingId = searchParams.get("bookingId");
+    const isCancelled = ["cancel", "canceled", "failed", "error"].includes((status || "").toLowerCase());
+
+    const redirectWithMessage = (text, delay = 1200) => {
+      if (!isMounted) return;
+      setMessage(text);
+      setTimeout(() => {
+        if (isMounted) navigate("/my-bookings", { replace: true });
+      }, delay);
+    };
 
     if (isCancelled) {
-      setMessage("Payment was cancelled or failed. You can try again from My Bookings.");
-      setTimeout(() => navigate("/my-bookings", { replace: true }), 2500);
+      redirectWithMessage("Payment was cancelled or failed. You can try again from My Bookings.", 2500);
       return;
     }
 
-    if (provider === "khalti") {
-      setMessage("Payment successful. Redirecting…");
-      setTimeout(() => navigate("/my-bookings", { replace: true }), 800);
-      return;
-    }
+    const verifyPayment = async (attemptsLeft = 3) => {
+      if (provider !== "khalti") {
+        redirectWithMessage("Payment successful. Redirecting…", 800);
+        return;
+      }
 
-    setMessage("Payment successful. Redirecting…");
-    setTimeout(() => navigate("/my-bookings", { replace: true }), 800);
+      try {
+        const payload = {};
+        if (bookingId) payload.bookingId = bookingId;
+        if (pidx) payload.pidx = pidx;
+
+        const result = await verifyKhalti(payload);
+
+        if (result?.ok) {
+          redirectWithMessage("Payment confirmed successfully! Redirecting…", 1000);
+          return;
+        }
+
+        if (result?.pending && attemptsLeft > 1) {
+          if (isMounted) setMessage("Payment status pending, retrying verification…");
+          setTimeout(() => verifyPayment(attemptsLeft - 1), 2000);
+          return;
+        }
+
+        redirectWithMessage(
+          result?.message || "We couldn't confirm your payment automatically. Please check My Bookings shortly.",
+          2000
+        );
+      } catch (err) {
+        if (attemptsLeft > 1) {
+          setTimeout(() => verifyPayment(attemptsLeft - 1), 2000);
+        } else {
+          redirectWithMessage(err?.message || "We couldn't confirm your payment yet. Please check your bookings shortly.", 2000);
+        }
+      }
+    };
+
+    verifyPayment();
+
+    return () => {
+      isMounted = false;
+    };
   }, [navigate, searchParams]);
 
   return (

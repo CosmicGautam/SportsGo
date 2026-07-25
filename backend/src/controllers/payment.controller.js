@@ -1,5 +1,3 @@
-// controllers/payment.controller.js
-
 const User = require("../models/User.model");
 
 /**

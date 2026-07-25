@@ -1,4 +1,4 @@
-// src/pages/public/Courts.jsx
+
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import { getAllCourts, courtImageUrl } from "../../api/courts.api";
