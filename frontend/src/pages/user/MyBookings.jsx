@@ -48,17 +48,19 @@ export default function MyBookings() {
   };
 
   const handlePayKhalti = async (bookingId) => {
-    setPayBusy(bookingId);
-    setError("");
-    try {
-      const { payment_url: paymentUrl } = await initiateKhalti(bookingId);
-      if (paymentUrl) window.open(paymentUrl, "_blank", "noopener,noreferrer");
-    } catch (err) {
-      setError(err?.message || "Could not start Khalti");
-    } finally {
-      setPayBusy(null);
+  setPayBusy(bookingId);
+  setError("");
+  try {
+    const { payment_url: paymentUrl } = await initiateKhalti(bookingId);
+    if (paymentUrl) {
+      window.location.href = paymentUrl;
     }
-  };
+  } catch (err) {
+    setError(err?.message || "Could not start Khalti");
+  } finally {
+    setPayBusy(null);
+  }
+};
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);

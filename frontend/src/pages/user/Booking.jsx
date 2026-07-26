@@ -107,12 +107,12 @@ export default function Booking() {
     try {
       const { payment_url: paymentUrl } = await initiateKhalti(pendingBooking._id);
       if (paymentUrl) {
-        window.open(paymentUrl, "_blank", "noopener,noreferrer");
+        window.location.href = paymentUrl;
         return;
       }
       setError("No payment URL returned.");
     } catch (err) {
-      const msg = err?.message || "Khalti could not start. Check server keys (KHALTI_SECRET_KEY).";
+      const msg = err?.message || "Khalti could not start. Check server keys.";
       setError(msg);
     } finally {
       setPayBusy(false);
@@ -217,7 +217,9 @@ export default function Booking() {
             <h3>Available Time Slots</h3>
 
             {!selectedDate ? (
-              <p style={{ color: "#6b7280", textAlign: "center", padding: "2rem" }}>Please select a date first</p>
+              <p style={{ color: "#6b7280", textAlign: "center", padding: "2rem" }}>
+                Please select a date first
+              </p>
             ) : loading && !slots.length ? (
               <p style={{ color: "#6b7280", textAlign: "center", padding: "2rem" }}>
                 Loading available slots...
@@ -237,9 +239,7 @@ export default function Booking() {
                       key={index}
                       type="button"
                       disabled={isBooked}
-                      className={`slot 
-                        ${isBooked ? "booked" : ""}
-                        ${isSelected ? "selected" : ""}`}
+                      className={`slot ${isBooked ? "booked" : ""} ${isSelected ? "selected" : ""}`}
                       onClick={() => {
                         setSelectedSlot(slot.time);
                         setPendingBooking(null);
@@ -291,50 +291,50 @@ export default function Booking() {
               </p>
             </div>
 
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleCreatePendingBooking}
-              disabled={!selectedDate || !selectedSlot || loading}
-              style={{
-                width: "100%",
-                padding: "1rem",
-                background: !selectedDate || !selectedSlot || loading ? "#9ca3af" : "#10b981",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                fontSize: "1rem",
-                fontWeight: "600",
-                cursor: !selectedDate || !selectedSlot || loading ? "not-allowed" : "pointer",
-                transition: "background 0.3s",
-              }}
-            >
-              {loading ? "Processing..." : "Continue to payment"}
-            </button>
-
-            {pendingBooking && (
-              <div style={{ marginTop: "1.25rem" }}>
-                <h4 style={{ marginBottom: "0.5rem" }}>Pay with</h4>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={payBusy}
-                    onClick={handleKhaltiPay}
-                    style={{ flex: "1 1 140px" }}
-                  >
-                    Khalti
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    disabled={payBusy}
-                    style={{ flex: "1 1 140px" }}
-                  >
-                  </button>
-                </div>
-                <p style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: "0.75rem" }}>
-                  You will be redirected to your wallet. After paying, you will return here to confirm the booking.
+            {!pendingBooking ? (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleCreatePendingBooking}
+                disabled={!selectedDate || !selectedSlot || loading}
+                style={{
+                  width: "100%",
+                  padding: "1rem",
+                  background: !selectedDate || !selectedSlot || loading ? "#9ca3af" : "#10b981",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  fontSize: "1rem",
+                  fontWeight: "600",
+                  cursor: !selectedDate || !selectedSlot || loading ? "not-allowed" : "pointer",
+                  transition: "background 0.3s",
+                }}
+              >
+                {loading ? "Holding Slot..." : "Hold Slot & Proceed"}
+              </button>
+            ) : (
+              <div style={{ marginTop: "1rem" }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={payBusy}
+                  onClick={handleKhaltiPay}
+                  style={{
+                    width: "100%",
+                    padding: "1rem",
+                    background: "#5c2d91",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontSize: "1rem",
+                    fontWeight: "600",
+                    cursor: payBusy ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {payBusy ? "Redirecting to Khalti..." : "Pay with Khalti"}
+                </button>
+                <p style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: "0.75rem", textAlign: "center" }}>
+                  Your slot is held. Click above to complete payment securely with Khalti.
                 </p>
               </div>
             )}

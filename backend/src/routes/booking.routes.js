@@ -21,7 +21,7 @@ function isLegacyPaid(b) {
 // All booking routes require login
 router.use(protect);
 
-// GET /api/bookings/slots?courtId=...&date=...
+
 router.get("/slots", async (req, res) => {
   try {
     const { courtId, date } = req.query;
