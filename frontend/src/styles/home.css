@@ -47,33 +47,89 @@
   margin-top: 3rem;
 }
 
-.feature-card {
-  background: white;
-  padding: 2.5rem;
-  border-radius: 18px;
-  text-align: center;
-  transition: all 0.3s ease;
-  border: 1px solid #e5e7eb;
+/* Slider Styles */
+.home-slider-section {
+  padding: 2.5rem 0;
 }
 
-.feature-card span {
-  font-size: 2.5rem;
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
 }
 
-.feature-card h3 {
-  margin: 1rem 0;
-  font-size: 1.25rem;
+.see-all-link {
+  color: #10b981;
+  font-weight: 600;
+  text-decoration: none;
 }
 
-.feature-card p {
-  color: #6b7280;
+.see-all-link:hover {
+  text-decoration: underline;
 }
 
-.feature-card:hover {
-  transform: translateY(-10px);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+.flex-slider {
+  display: flex;
+  gap: 1.5rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 1rem;
+  scrollbar-width: thin;
 }
 
+.slider-card {
+  flex: 0 0 280px;
+  scroll-snap-align: start;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* Court Card Slider Specifics */
+.court-slide-card .card-image-wrapper {
+  position: relative;
+  height: 160px;
+}
+
+.court-slide-card .card-image-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.court-slide-card .card-content {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Upcoming Bookings Slider Specifics */
+.booking-slide-card {
+  padding: 1.25rem;
+  border-left: 4px solid #10b981;
+}
+
+.booking-slide-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.status-badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  background: #d1fae5;
+  color: #065f46;
+  font-weight: 600;
+}
 /* CTA */
 .home-cta {
   padding: 5rem 0;
@@ -90,4 +146,76 @@
 .home-cta p {
   margin-bottom: 2rem;
   color: #ecfdf5;
+}
+
+/* SLIDER SECTION & CONTROLS */
+.home-slider-section {
+  padding: 3.5rem 0;
+  background-color: #fafafa;
+}
+
+.home-slider-section.upcoming-bookings-section {
+  background-color: #ffffff;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.75rem;
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.section-controls {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.slider-nav-btns {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.slider-arrow {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #374151;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.slider-arrow:hover {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #10b981;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.2);
+}
+
+.see-all-link {
+  color: #10b981;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.see-all-link:hover {
+  color: #059669;
+  text-decoration: underline;
 }

@@ -18,6 +18,23 @@ function isLegacyPaid(b) {
   );
 }
 
+function isCancellationAllowed(bookingDate, timeSlot) {
+  if (!bookingDate || !timeSlot || typeof timeSlot !== "string") return false;
+
+  const [startTime] = timeSlot.split(" - ");
+  if (!startTime) return false;
+
+  const [hours, minutes] = startTime.split(":").map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return false;
+
+  const startDateTime = new Date(bookingDate);
+  startDateTime.setHours(hours, minutes, 0, 0);
+
+  const hoursDifference = (startDateTime - new Date()) / (1000 * 60 * 60);
+
+  return hoursDifference > 24;
+}
+
 // All booking routes require login
 router.use(protect);
 
@@ -148,7 +165,7 @@ router.get("/all", restrictTo("superadmin"), async (req, res) => {
   }
 });
 
-// DELETE /api/bookings/:id  — cancel
+// DELETE /api/bookings/:id — cancel
 router.delete("/:id", async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
@@ -160,19 +177,34 @@ router.delete("/:id", async (req, res) => {
     let isProviderCourt = false;
     if (req.user.role === "provider") {
       const court = await Court.findById(booking.court);
-      isProviderCourt = court?.provider.toString() === req.user._id.toString();
+      isProviderCourt = court?.provider?.toString() === req.user._id.toString();
     }
 
     if (!isSuperAdmin && !isOwner && !isProviderCourt) {
       return res.status(403).json({ message: "Not authorized to cancel this booking" });
     }
 
+    // Standard users must cancel at least 24 hours prior
+    if (isOwner && !isSuperAdmin && !isProviderCourt) {
+      if (!isCancellationAllowed(booking.date, booking.timeSlot)) {
+        return res.status(400).json({
+          message: "Cancellations are only allowed at least 24 hours before the booked time.",
+        });
+      }
+    }
+
     booking.status = "cancelled";
-    if (booking.paymentStatus === "pending") booking.paymentStatus = "failed";
+
+    // Set paymentStatus safely within enum constraints
+    if (booking.paymentStatus === "pending") {
+      booking.paymentStatus = "failed";
+    }
+
     await booking.save();
-    res.json({ message: "Booking cancelled" });
+    return res.json({ message: "Booking cancelled successfully" });
   } catch (err) {
-    res.status(500).json({ message: "Failed to cancel booking" });
+    console.error("Cancel booking server error:", err); // Print exact error to server logs
+    return res.status(500).json({ message: err.message || "Failed to cancel booking" });
   }
 });
 

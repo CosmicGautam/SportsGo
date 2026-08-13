@@ -30,13 +30,36 @@ export default function MyBookings() {
     }
   };
 
-  const handleCancel = async (bookingId) => {
+
+  /**
+   * Helper to extract start time from a slot like "06:00 - 07:00"
+   * and check if the booking starts more than 24 hours from now.
+   */
+  function isCancellationAllowed(bookingDate, timeSlot) {
+    const [startTime] = timeSlot.split(" - "); // Extracts "06:00"
+    const [hours, minutes] = startTime.split(":").map(Number);
+
+    const startDateTime = new Date(bookingDate);
+    startDateTime.setHours(hours, minutes, 0, 0);
+
+    const hoursDifference = (startDateTime - new Date()) / (1000 * 60 * 60);
+
+    // Allowed only if more than 24 hours remain until start time
+    return hoursDifference > 24;
+  }
+
+  const handleCancel = async (booking) => {
+    if (!isCancellationAllowed(booking.date, booking.timeSlot)) {
+      setError("Cancellations are only allowed at least 24 hours before the booked slot.");
+      return;
+    }
+
     if (!window.confirm("Are you sure you want to cancel this booking?")) {
       return;
     }
 
     try {
-      await cancelBooking(bookingId);
+      await cancelBooking(booking._id);
       setSuccess("Booking cancelled successfully");
       fetchBookings();
 
@@ -194,30 +217,42 @@ export default function MyBookings() {
           </>
         )}
         {booking.status !== "cancelled" && booking.status !== "pending_payment" && (
-          <button
-            type="button"
-            className="btn-cancel"
-            onClick={() => handleCancel(booking._id)}
-            style={{
-              padding: "0.625rem 1.25rem",
-              background: "#ef4444",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontWeight: "600",
-              transition: "background 0.3s",
-            }}
-            onMouseOver={(e) => (e.target.style.background = "#dc2626")}
-            onMouseOut={(e) => (e.target.style.background = "#ef4444")}
-          >
-            Cancel Booking
-          </button>
-        )}
+        (() => {
+          const canCancel = isCancellationAllowed(booking.date, booking.timeSlot);
+          return (
+            <button
+              type="button"
+              className="btn-cancel"
+              disabled={!canCancel}
+              onClick={() => handleCancel(booking)}
+              title={!canCancel ? "Cancellations allowed only 24h prior to booking" : ""}
+              style={{
+                padding: "0.625rem 1.25rem",
+                background: canCancel ? "#ef4444" : "#9ca3af",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                cursor: canCancel ? "pointer" : "not-allowed",
+                fontWeight: "600",
+                opacity: canCancel ? 1 : 0.6,
+                transition: "background 0.3s",
+              }}
+              onMouseOver={(e) => {
+                if (canCancel) e.target.style.background = "#dc2626";
+              }}
+              onMouseOut={(e) => {
+                if (canCancel) e.target.style.background = "#ef4444";
+              }}
+            >
+              Cancel Booking
+            </button>
+          );
+        })()
+      )}
         {booking.status === "pending_payment" && (
           <button
             type="button"
-            onClick={() => handleCancel(booking._id)}
+            onClick={() => handleCancel(booking)}
             style={{
               padding: "0.625rem 1.25rem",
               background: "transparent",
