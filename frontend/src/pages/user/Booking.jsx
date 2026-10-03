@@ -60,6 +60,34 @@ export default function Booking() {
     }
   };
 
+  /**
+   * Checks if a slot time has already passed for a given date string (YYYY-MM-DD).
+   * @param {string} selectedDateStr - e.g., "2026-10-03"
+   * @param {string} timeSlot - e.g., "06:00 - 07:00" or "06:00"
+   */
+  function isSlotPassed(selectedDateStr, timeSlot) {
+    if (!selectedDateStr || !timeSlot) return false;
+
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    // If selecting a future date, slot hasn't passed
+    if (selectedDateStr > todayStr) return false;
+
+    // If selecting a past date, all slots have passed
+    if (selectedDateStr < todayStr) return true;
+
+    // Same day logic: check if current time has passed slot start/end time
+    const [startTime] = timeSlot.split(" - "); // Extracts start time (e.g., "06:00")
+    const [hours, minutes] = startTime.split(":").map(Number);
+
+    const slotStartDateTime = new Date();
+    slotStartDateTime.setHours(hours, minutes, 0, 0);
+
+    return new Date() >= slotStartDateTime;
+  }
+
+
+
   const handleCreatePendingBooking = async (e) => {
     e.preventDefault();
 
@@ -232,15 +260,17 @@ export default function Booking() {
               <div className="slots-grid">
                 {slots.map((slot, index) => {
                   const isBooked = slot.booked;
+                  const isPassed = isSlotPassed(selectedDate, slot.time);
+                  const isDisabled = isBooked || isPassed;
                   const isSelected = slot.time === selectedSlot;
-
                   return (
                     <button
                       key={index}
                       type="button"
-                      disabled={isBooked}
-                      className={`slot ${isBooked ? "booked" : ""} ${isSelected ? "selected" : ""}`}
+                      disabled={isDisabled}
+                      className={`slot ${isDisabled ? "booked" : ""} ${isSelected ? "selected" : ""}`}
                       onClick={() => {
+                        if (isDisabled) return;
                         setSelectedSlot(slot.time);
                         setPendingBooking(null);
                         setSuccess("");
@@ -249,9 +279,9 @@ export default function Booking() {
                         padding: "1rem",
                         border: isSelected ? "3px solid #10b981" : "2px solid #e5e7eb",
                         borderRadius: "8px",
-                        background: isBooked ? "#f3f4f6" : isSelected ? "#d1fae5" : "white",
-                        cursor: isBooked ? "not-allowed" : "pointer",
-                        opacity: isBooked ? 0.5 : 1,
+                        background: isDisabled ? "#f3f4f6" : isSelected ? "#d1fae5" : "white",
+                        cursor: isDisabled ? "not-allowed" : "pointer",
+                        opacity: isDisabled ? 0.5 : 1,
                         fontWeight: "600",
                         transition: "all 0.3s",
                       }}
@@ -259,6 +289,9 @@ export default function Booking() {
                       {slot.time}
                       {isBooked && (
                         <div style={{ fontSize: "0.75rem", color: "#ef4444" }}>Booked</div>
+                      )}
+                      {!isBooked && isPassed && (
+                        <div style={{ fontSize: "0.75rem", color: "#9ca3af" }}>Passed</div>
                       )}
                     </button>
                   );

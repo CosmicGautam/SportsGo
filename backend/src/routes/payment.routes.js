@@ -32,6 +32,9 @@ async function loadBookingForPayment(bookingId, userId) {
   if (booking.status !== "pending_payment" || booking.paymentStatus !== "pending") {
     return { error: { status: 400, message: "Booking is not awaiting payment" } };
   }
+  if (isSlotExpired(booking.date, booking.timeSlot)) {
+    return { error: { status: 400, message: "This slot time has already passed. Payment is no longer allowed." } };
+  }
   return { booking };
 }
 

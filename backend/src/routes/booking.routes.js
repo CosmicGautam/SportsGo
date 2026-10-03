@@ -7,6 +7,42 @@ const User = require("../models/User.model");
 const { protect, restrictTo } = require("../middleware/auth.middleware");
 const { hasBasicContact, getContact } = require("../utils/paymentContact");
 
+
+/**
+ * Checks if a slot start/end time has passed relative to current time.
+ */
+function isSlotPassed(bookingDate, timeSlot) {
+  if (!bookingDate || !timeSlot || typeof timeSlot !== "string") return false;
+
+  const now = new Date();
+  
+  // Create Date objects representing midnight for comparison
+  const selectedDate = new Date(bookingDate);
+  const today = new Date();
+  selectedDate.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+
+  // Future date: not passed
+  if (selectedDate > today) return false;
+  // Past date: already passed
+  if (selectedDate < today) return true;
+
+  // Same day: check start time (e.g. "06:00" from "06:00 - 07:00")
+  const [startTime] = timeSlot.split(" - ");
+  if (!startTime) return false;
+
+  const [hours, minutes] = startTime.split(":").map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return false;
+
+  const slotStartDateTime = new Date(bookingDate);
+  slotStartDateTime.setHours(hours, minutes, 0, 0);
+
+  return now >= slotStartDateTime;
+}
+
+
+
+
 const bookedSlotFilter = {
   status: { $ne: "cancelled" },
 };
@@ -39,6 +75,7 @@ function isCancellationAllowed(bookingDate, timeSlot) {
 router.use(protect);
 
 
+// GET /api/bookings/slots
 router.get("/slots", async (req, res) => {
   try {
     const { courtId, date } = req.query;
@@ -67,7 +104,12 @@ router.get("/slots", async (req, res) => {
       }
     }
 
-    const slots = allSlots.map((time) => ({ time, booked: bookedSlots.has(time) }));
+    //Mark as booked if either already taken OR if the slot time has passed ---
+    const slots = allSlots.map((time) => ({
+      time,
+      booked: bookedSlots.has(time) || isSlotPassed(date, time),
+    }));
+
     res.json(slots);
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch slots" });
@@ -78,6 +120,11 @@ router.get("/slots", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const { courtId, date, time } = req.body;
+
+    //Block attempts to book past slots ---
+    if (isSlotPassed(date, time)) {
+      return res.status(400).json({ message: "Cannot book a time slot that has already passed." });
+    }
 
     const court = await Court.findById(courtId);
     if (!court) return res.status(404).json({ message: "Court not found" });

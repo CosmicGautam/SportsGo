@@ -140,16 +140,16 @@ export default function Courts() {
 
 
 
-      {isLoggedIn && (
+      {isLoggedIn && recommended.length > 0 && (
         <section className="courts-section" style={{ paddingBottom: 0 }}>
           <div className="container">
-            <h2 style={{ marginBottom: "1rem", fontSize: "1.25rem" }}>Recommended for you</h2>
+            {/* Dynamic Title based on whether the top item has a personalized match score */}
+            <h2 style={{ marginBottom: "1rem", fontSize: "1.25rem" }}>
+              {recommended[0]?.score > 0 ? "Recommended for you" : "Our Popular Courts"}
+            </h2>
+
             {recLoading ? (
               <p style={{ color: "#6b7280" }}>Loading suggestions…</p>
-            ) : recommended.length === 0 ? (
-              <p style={{ color: "#6b7280", marginBottom: "1.5rem" }}>
-                Book and pay for a court to get personalized picks.
-              </p>
             ) : (
               <div
                 className="courts-grid"
@@ -179,11 +179,14 @@ export default function Courts() {
                         📍 {c.district}
                         {c.address ? `, ${c.address}` : ""}
                       </p>
+
+                      {/* Show Match % for recommendations OR Popular badge for cold start */}
                       {score > 0 && (
-                        <p style={{ fontSize: "0.8rem", color: "#6b7280" }}>
+                        <p style={{ fontSize: "0.8rem", color: "#10b981", fontWeight: 600 }}>
                           Match {(score * 100).toFixed(0)}%
                         </p>
                       )}
+
                       <button
                         type="button"
                         onClick={() => handleBookCourt(c._id)}

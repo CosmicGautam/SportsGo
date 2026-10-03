@@ -30,7 +30,17 @@ export default function MyBookings() {
     }
   };
 
+  function isSlotExpired(bookingDate, timeSlot) {
+    if (!bookingDate || !timeSlot) return true;
+    const times = timeSlot.split(" - ");
+    const endTimeStr = times[1] || times[0];
+    const [hours, minutes] = endTimeStr.split(":").map(Number);
 
+    const slotEnd = new Date(bookingDate);
+    slotEnd.setHours(hours, minutes, 0, 0);
+
+    return new Date() > slotEnd;
+  }
   /**
    * Helper to extract start time from a slot like "06:00 - 07:00"
    * and check if the booking starts more than 24 hours from now.
@@ -111,14 +121,14 @@ export default function MyBookings() {
   };
 
   const isCancelled = (booking) => booking?.status === "cancelled";
+
+  // Booking is upcoming only if it's not cancelled and the slot has not expired yet
   const isUpcoming = (booking) => {
-    const bookingDate = new Date(booking?.date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const normalizedBookingDate = new Date(bookingDate);
-    normalizedBookingDate.setHours(0, 0, 0, 0);
-    return normalizedBookingDate >= today && !isCancelled(booking);
+    if (!booking || isCancelled(booking)) return false;
+    return !isSlotExpired(booking.date, booking.timeSlot);
   };
+
+  // Booking is past if it's not cancelled and no longer upcoming
   const isPast = (booking) => !isCancelled(booking) && !isUpcoming(booking);
 
   const sortBookings = (list) =>
@@ -205,16 +215,27 @@ export default function MyBookings() {
         }}
       >
         {booking.status === "pending_payment" && (
-          <>
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={payBusy === booking._id}
-              onClick={() => handlePayKhalti(booking._id)}
-            >
-              {payBusy === booking._id ? "…" : "Pay with Khalti"}
-            </button>
-          </>
+          (() => {
+            const expired = isSlotExpired(booking.date, booking.timeSlot);
+            if (expired) {
+              return (
+                <span style={{ color: "#ef4444", fontWeight: 600, fontSize: "0.9rem", padding:"0.625rem 1.25rem" }}>
+                  Payment window expired
+                </span>
+              );
+            }
+
+            return (
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={payBusy === booking._id}
+                onClick={() => handlePayKhalti(booking._id)}
+              >
+                {payBusy === booking._id ? "…" : "Pay with Khalti"}
+              </button>
+            );
+          })()
         )}
         {booking.status !== "cancelled" && booking.status !== "pending_payment" && (
         (() => {

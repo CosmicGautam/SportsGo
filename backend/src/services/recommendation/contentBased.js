@@ -110,8 +110,27 @@ async function scoreCourtsForUser(userId, opts = {}) {
 
   const courts = await Court.find(filter).populate("provider", "name email").lean();
 
+  // COLD START FALLBACK: Rank by overall booking popularity
   if (!pref) {
-    return courts.slice(0, limit).map((c) => ({ court: c, score: 0 }));
+    // Count confirmed bookings per court
+    const popularCourtCounts = await Booking.aggregate([
+      { $match: { status: "confirmed" } },
+      { $group: { _id: "$court", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
+
+    const countMap = new Map(popularCourtCounts.map((item) => [String(item._id), item.count]));
+
+    const popularCourts = courts.map((c) => ({
+      court: c,
+      score: 0, // Score 0 indicates popular/trending fallback rather than personalized match
+      bookingCount: countMap.get(String(c._id)) || 0,
+    }));
+
+    // Sort by booking count descending
+    popularCourts.sort((a, b) => b.bookingCount - a.bookingCount);
+
+    return popularCourts.slice(0, limit);
   }
 
   const scored = courts.map((c) => {
