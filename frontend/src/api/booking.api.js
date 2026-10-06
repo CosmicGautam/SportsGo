@@ -114,4 +114,17 @@ export const getBookingById = async (bookingId) => {
   }
 };
 
+// Provider: manually mark booking payment status (e.g. pending → paid)
+export const updateBookingPaymentStatus = async (bookingId, paymentStatus) => {
+  try {
+    const response = await bookingsAPI.patch(`/${bookingId}/payment-status`, {
+      paymentStatus,
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Failed to update payment status' };
+  }
+};
+
+
 export default bookingsAPI;

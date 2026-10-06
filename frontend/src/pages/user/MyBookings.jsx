@@ -41,12 +41,10 @@ export default function MyBookings() {
 
     return new Date() > slotEnd;
   }
-  /**
-   * Helper to extract start time from a slot like "06:00 - 07:00"
-   * and check if the booking starts more than 24 hours from now.
-   */
+
   function isCancellationAllowed(bookingDate, timeSlot) {
-    const [startTime] = timeSlot.split(" - "); // Extracts "06:00"
+    if (!bookingDate || !timeSlot) return false;
+    const [startTime] = timeSlot.split(" - ");
     const [hours, minutes] = startTime.split(":").map(Number);
 
     const startDateTime = new Date(bookingDate);
@@ -54,7 +52,6 @@ export default function MyBookings() {
 
     const hoursDifference = (startDateTime - new Date()) / (1000 * 60 * 60);
 
-    // Allowed only if more than 24 hours remain until start time
     return hoursDifference > 24;
   }
 
@@ -81,19 +78,19 @@ export default function MyBookings() {
   };
 
   const handlePayKhalti = async (bookingId) => {
-  setPayBusy(bookingId);
-  setError("");
-  try {
-    const { payment_url: paymentUrl } = await initiateKhalti(bookingId);
-    if (paymentUrl) {
-      window.location.href = paymentUrl;
+    setPayBusy(bookingId);
+    setError("");
+    try {
+      const { payment_url: paymentUrl } = await initiateKhalti(bookingId);
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
+      }
+    } catch (err) {
+      setError(err?.message || "Could not start Khalti");
+    } finally {
+      setPayBusy(null);
     }
-  } catch (err) {
-    setError(err?.message || "Could not start Khalti");
-  } finally {
-    setPayBusy(null);
-  }
-};
+  };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -110,31 +107,35 @@ export default function MyBookings() {
     return court.district || court.address || "N/A";
   };
 
+  // Check both paymentStatus and status safely
+  const isPaid = (b) => b.paymentStatus === "paid" || b.paymentStatus === "completed" || b.status === "confirmed";
+  const isPending = (b) => (b.status === "pending_payment" || b.paymentStatus === "pending") && !isPaid(b);
+  const isCancelled = (b) => b.status === "cancelled" || b.paymentStatus === "failed";
+
   const statusStyle = (booking) => {
-    if (booking.status === "pending_payment") {
-      return { background: "#fef3c7", color: "#92400e" };
-    }
-    if (booking.status === "cancelled") {
+    if (isCancelled(booking)) {
       return { background: "#fee2e2", color: "#991b1b" };
     }
-    return { background: "#d1fae5", color: "#065f46" };
+    if (isPaid(booking)) {
+      return { background: "#d1fae5", color: "#065f46" };
+    }
+    if (isPending(booking)) {
+      return { background: "#fef3c7", color: "#92400e" };
+    }
+    return { background: "#e5e7eb", color: "#374151" };
   };
 
-  const isCancelled = (booking) => booking?.status === "cancelled";
-
-  // Booking is upcoming only if it's not cancelled and the slot has not expired yet
   const isUpcoming = (booking) => {
     if (!booking || isCancelled(booking)) return false;
     return !isSlotExpired(booking.date, booking.timeSlot);
   };
 
-  // Booking is past if it's not cancelled and no longer upcoming
   const isPast = (booking) => !isCancelled(booking) && !isUpcoming(booking);
 
   const sortBookings = (list) =>
     [...list].sort((a, b) => {
-      if (a.status === "pending_payment" && b.status !== "pending_payment") return -1;
-      if (a.status !== "pending_payment" && b.status === "pending_payment") return 1;
+      if (isPending(a) && !isPending(b)) return -1;
+      if (!isPending(a) && isPending(b)) return 1;
       return new Date(a.date) - new Date(b.date);
     });
 
@@ -166,7 +167,7 @@ export default function MyBookings() {
       >
         <h3 style={{ color: "#1f2937", margin: 0 }}>{booking.court?.name || "Court"}</h3>
         <span
-          className={`status ${booking.status || "confirmed"}`}
+          className="status"
           style={{
             padding: "0.375rem 0.875rem",
             borderRadius: "20px",
@@ -176,9 +177,13 @@ export default function MyBookings() {
             ...statusStyle(booking),
           }}
         >
-          {booking.status === "pending_payment"
+          {isPaid(booking)
+            ? "Paid & Confirmed"
+            : isPending(booking)
             ? "Awaiting payment"
-            : booking.status || "Confirmed"}
+            : isCancelled(booking)
+            ? "Cancelled"
+            : booking.status}
         </span>
       </div>
 
@@ -214,12 +219,13 @@ export default function MyBookings() {
           gap: "0.5rem",
         }}
       >
-        {booking.status === "pending_payment" && (
+        {/* Only show payment buttons/expiration if payment is STILL pending and NOT paid */}
+        {isPending(booking) && (
           (() => {
             const expired = isSlotExpired(booking.date, booking.timeSlot);
             if (expired) {
               return (
-                <span style={{ color: "#ef4444", fontWeight: 600, fontSize: "0.9rem", padding:"0.625rem 1.25rem" }}>
+                <span style={{ color: "#ef4444", fontWeight: 600, fontSize: "0.9rem", padding: "0.625rem 1.25rem" }}>
                   Payment window expired
                 </span>
               );
@@ -237,40 +243,37 @@ export default function MyBookings() {
             );
           })()
         )}
-        {booking.status !== "cancelled" && booking.status !== "pending_payment" && (
-        (() => {
-          const canCancel = isCancellationAllowed(booking.date, booking.timeSlot);
-          return (
-            <button
-              type="button"
-              className="btn-cancel"
-              disabled={!canCancel}
-              onClick={() => handleCancel(booking)}
-              title={!canCancel ? "Cancellations allowed only 24h prior to booking" : ""}
-              style={{
-                padding: "0.625rem 1.25rem",
-                background: canCancel ? "#ef4444" : "#9ca3af",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: canCancel ? "pointer" : "not-allowed",
-                fontWeight: "600",
-                opacity: canCancel ? 1 : 0.6,
-                transition: "background 0.3s",
-              }}
-              onMouseOver={(e) => {
-                if (canCancel) e.target.style.background = "#dc2626";
-              }}
-              onMouseOut={(e) => {
-                if (canCancel) e.target.style.background = "#ef4444";
-              }}
-            >
-              Cancel Booking
-            </button>
-          );
-        })()
-      )}
-        {booking.status === "pending_payment" && (
+
+        {/* Show Cancel option for paid/confirmed bookings */}
+        {!isCancelled(booking) && !isPending(booking) && (
+          (() => {
+            const canCancel = isCancellationAllowed(booking.date, booking.timeSlot);
+            return (
+              <button
+                type="button"
+                className="btn-cancel"
+                disabled={!canCancel}
+                onClick={() => handleCancel(booking)}
+                title={!canCancel ? "Cancellations allowed only 24h prior to booking" : ""}
+                style={{
+                  padding: "0.625rem 1.25rem",
+                  background: canCancel ? "#ef4444" : "#9ca3af",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: canCancel ? "pointer" : "not-allowed",
+                  fontWeight: "600",
+                  opacity: canCancel ? 1 : 0.6,
+                  transition: "background 0.3s",
+                }}
+              >
+                Cancel Booking
+              </button>
+            );
+          })()
+        )}
+
+        {isPending(booking) && (
           <button
             type="button"
             onClick={() => handleCancel(booking)}
@@ -291,7 +294,7 @@ export default function MyBookings() {
     </div>
   );
 
-  const renderSection = (title, items, emptyText) => {
+  const renderSection = (title, items) => {
     if (!items.length) return null;
     return (
       <div style={{ marginBottom: "2rem" }}>
@@ -363,9 +366,9 @@ export default function MyBookings() {
             </div>
           ) : (
             <>
-              {renderSection("Upcoming bookings", upcomingBookings, "No upcoming bookings")}
-              {renderSection("Past bookings", pastBookings, "No past bookings")}
-              {renderSection("Cancelled bookings", cancelledBookings, "No cancelled bookings")}
+              {renderSection("Upcoming bookings", upcomingBookings)}
+              {renderSection("Past bookings", pastBookings)}
+              {renderSection("Cancelled bookings", cancelledBookings)}
             </>
           )}
         </div>

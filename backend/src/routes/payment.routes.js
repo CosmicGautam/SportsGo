@@ -19,6 +19,34 @@ const {
 
 router.use(protect);
 
+// backend/routes/payment.routes.js
+
+function isSlotExpired(bookingDate, timeSlot) {
+  if (!bookingDate || !timeSlot || typeof timeSlot !== "string") return false;
+
+  const now = new Date();
+  const selectedDate = new Date(bookingDate);
+  const today = new Date();
+
+  selectedDate.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+
+  if (selectedDate > today) return false;
+  if (selectedDate < today) return true;
+
+  const times = timeSlot.split(" - ");
+  const endTimeStr = times[1] || times[0];
+  const [hours, minutes] = endTimeStr.split(":").map(Number);
+
+  if (isNaN(hours) || isNaN(minutes)) return false;
+
+  const slotEndDateTime = new Date(bookingDate);
+  slotEndDateTime.setHours(hours, minutes, 0, 0);
+
+  return now >= slotEndDateTime;
+}
+
+
 async function loadBookingForPayment(bookingId, userId) {
   const booking = await Booking.findById(bookingId).populate({
     path: "court",

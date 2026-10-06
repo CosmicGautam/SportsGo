@@ -1,6 +1,6 @@
 import Booking from "../models/Booking.model.js";
 import { generateSlots } from "../utils/generateSlots.js";
-
+import mongoose from "mongoose";
 export const getSlots = async (req, res) => {
   try {
     const { courtId, date } = req.query;
@@ -48,6 +48,66 @@ export const getUserBookings = async (req, res) => {
 };
 
 
+// Update booking payment status (Provider)
+export const updateBookingPaymentStatus = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { paymentStatus } = req.body;
+
+    // 1. Verify User is Authenticated
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    // 2. Validate MongoDB ObjectId Format
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({ message: "Invalid booking ID format" });
+    }
+
+    // 3. Find Booking
+    const booking = await Booking.findById(bookingId).populate("court");
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    // 4. Safe Authorization Check (handles null court/owner safely)
+    const courtOwnerId = booking.court?.owner?.toString() || booking.court?.user?.toString();
+    const currentUserId = req.user._id?.toString() || req.user.id?.toString();
+
+    const isOwner = courtOwnerId && currentUserId && courtOwnerId === currentUserId;
+    const isAdmin = req.user.role === "admin" || req.user.isSuperAdmin === true;
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ message: "Unauthorized to modify this booking" });
+    }
+
+    // 5. Update Payment & Booking Statuses safely
+    // Match these string values to whatever enum options exist in your Booking model
+    booking.paymentStatus = paymentStatus || "completed";
+
+    if (paymentStatus === "completed" || paymentStatus === "paid") {
+      booking.status = "confirmed";
+    } else if (paymentStatus === "cancelled" || paymentStatus === "failed") {
+      booking.status = "cancelled";
+    }
+
+    await booking.save();
+
+    return res.status(200).json({
+      message: "Payment status updated successfully",
+      booking,
+    });
+  } catch (error) {
+    // THIS LINE WILL PRINT THE EXACT CAUSE IN YOUR BACKEND TERMINAL
+    console.error("🔥 Error in updateBookingPaymentStatus:", error);
+
+    return res.status(500).json({
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
+
 // Get all bookings (admin only)
 export const getAllBookings = async (req, res) => {
   try {
@@ -63,22 +123,28 @@ export const getAllBookings = async (req, res) => {
   }
 };
 
+// backend/controllers/bookingController.js
 export const cancelBooking = async (req, res) => {
   try {
-    const booking = await Booking.findById(req.params.id);
-    
+    const { id } = req.params;
+    const booking = await Booking.findById(id);
+
     if (!booking) {
       return res.status(404).json({ message: "Booking not found" });
     }
-    
-    if (booking.user.toString() !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ message: "Not authorized" });
+
+    // Check if slot has already passed
+    if (isSlotPassed(booking.date, booking.timeSlot)) {
+      return res.status(400).json({ 
+        message: "Cannot cancel a booking after the time slot has passed." 
+      });
     }
-    
-    await booking.deleteOne();
-    res.json({ message: "Booking cancelled successfully" });
+
+    booking.status = "cancelled";
+    await booking.save();
+
+    res.status(200).json({ message: "Booking cancelled successfully", booking });
   } catch (error) {
-    console.error("Cancel booking error:", error);
-    res.status(500).json({ message: "Error cancelling booking" });
+    res.status(500).json({ message: error.message });
   }
 };

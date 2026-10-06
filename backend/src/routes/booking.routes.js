@@ -8,6 +8,53 @@ const { protect, restrictTo } = require("../middleware/auth.middleware");
 const { hasBasicContact, getContact } = require("../utils/paymentContact");
 
 
+
+// All booking routes require login
+router.use(protect);
+
+
+
+// PATCH /api/bookings/:id/payment-status — provider marks payment as paid/confirmed
+router.patch("/:id/payment-status", restrictTo("provider", "superadmin"), async (req, res) => {
+  try {
+    const { paymentStatus } = req.body;
+    const allowed = ["paid", "pending", "failed", "refunded"];
+    if (!paymentStatus || !allowed.includes(paymentStatus)) {
+      return res.status(400).json({
+        message: `paymentStatus must be one of: ${allowed.join(", ")}`,
+      });
+    }
+
+    const booking = await Booking.findById(req.params.id).populate("court");
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    const isSuperAdmin = req.user.role === "superadmin";
+    const isProviderOwner =
+      booking.court?.provider?.toString() === req.user._id.toString();
+
+    if (!isSuperAdmin && !isProviderOwner) {
+      return res.status(403).json({ message: "Unauthorized to modify this booking" });
+    }
+
+    booking.paymentStatus = paymentStatus;
+    if (paymentStatus === "paid") {
+      booking.status = "confirmed";
+    } else if (paymentStatus === "failed") {
+      booking.status = "cancelled";
+    }
+
+    await booking.save();
+
+    res.status(200).json({
+      message: "Payment status updated successfully",
+      booking,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Server error" });
+  }
+});
 /**
  * Checks if a slot start/end time has passed relative to current time.
  */
@@ -40,9 +87,6 @@ function isSlotPassed(bookingDate, timeSlot) {
   return now >= slotStartDateTime;
 }
 
-
-
-
 const bookedSlotFilter = {
   status: { $ne: "cancelled" },
 };
@@ -71,8 +115,7 @@ function isCancellationAllowed(bookingDate, timeSlot) {
   return hoursDifference > 24;
 }
 
-// All booking routes require login
-router.use(protect);
+
 
 
 // GET /api/bookings/slots

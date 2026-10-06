@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   getMyCourts,
   createCourt,
@@ -7,10 +6,10 @@ import {
   deleteCourt,
   courtImageUrl,
 } from "../../api/courts.api";
-import { getProviderBookings } from "../../api/booking.api";
+import { getProviderBookings, updateBookingPaymentStatus } from "../../api/booking.api";
 import { useAuth } from "../../context/AuthContext";
 import Footer from "../../components/layout/Footer";
-import paymentsAPI, { getPaymentInformation, updatePaymentInformation } from "../../api/payment.api";
+import { getPaymentInformation, updatePaymentInformation } from "../../api/payment.api";
 
 const DISTRICTS = [
   "Kathmandu","Lalitpur","Bhaktapur","Pokhara","Chitwan",
@@ -43,6 +42,40 @@ export default function ProviderDashboard() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // Filters state
+  const [dateFilter, setDateFilter] = useState("all"); // 'all' | 'today' | 'upcoming'
+  const [paymentFilter, setPaymentFilter] = useState("all"); // 'all' | 'completed' | 'pending' | 'failed'
+
+
+
+  const [updatingPaymentId, setUpdatingPaymentId] = useState(null);
+
+  const handleMarkAsPaid = async (bookingId) => {
+    if (!window.confirm("Are you sure you want to manually mark this booking as PAID?")) {
+      return;
+    }
+
+    try {
+      setUpdatingPaymentId(bookingId);
+      setError("");
+      setSuccess("");
+
+      await updateBookingPaymentStatus(bookingId, "paid");
+
+      setSuccess("Payment status updated to Paid. Booking confirmed.");
+      fetchProviderBookings();
+    } catch (err) {
+      setError(
+        (typeof err === "object" && err !== null && "message" in err
+          ? String(err.message)
+          : null) || "Failed to update payment status."
+      );
+    } finally {
+      setUpdatingPaymentId(null);
+    }
+  };
+
 
   const fetchCourts = useCallback(async () => {
     setLoading(true);
@@ -77,6 +110,64 @@ export default function ProviderDashboard() {
       setProviderBookingsLoading(false);
     }
   }, []);
+
+  // Filter logic
+  const filteredBookings = useMemo(() => {
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    return providerBookings.filter((booking) => {
+      const bookingDateStr = booking.date ? new Date(booking.date).toISOString().split("T")[0] : "";
+
+      // Time Range Filter
+      if (dateFilter === "today" && bookingDateStr !== todayStr) {
+        return false;
+      }
+      if (dateFilter === "upcoming" && bookingDateStr < todayStr) {
+        return false;
+      }
+
+      // Payment Status Filter
+      const status = (booking.paymentStatus || booking.status || "").toLowerCase();
+      if (paymentFilter === "completed" && status !== "completed" && status !== "paid") {
+        return false;
+      }
+      if (paymentFilter === "pending" && status !== "pending" && status !== "pending_payment") {
+        return false;
+      }
+      if (paymentFilter === "failed" && status !== "failed" && status !== "cancelled") {
+        return false;
+      }
+
+      return true;
+    });
+  }, [providerBookings, dateFilter, paymentFilter]);
+
+  // helper function to check if the time slot has passed
+  const isSlotPassed = (bookingDate, timeSlot) => {
+    const date = new Date(bookingDate);
+    
+    // Extract start time from slot string (e.g., "10:00 - 11:00" -> "10:00")
+    let startTime = timeSlot;
+    if (timeSlot.includes("-")) {
+      startTime = timeSlot.split("-")[0].trim();
+    }
+
+    // Parse hours and minutes
+    const timeParts = startTime.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+    if (timeParts) {
+      let hours = parseInt(timeParts[1], 10);
+      const minutes = parseInt(timeParts[2], 10);
+      const ampm = timeParts[3];
+
+      if (ampm) {
+        if (ampm.toUpperCase() === "PM" && hours < 12) hours += 12;
+        if (ampm.toUpperCase() === "AM" && hours === 12) hours = 0;
+      }
+      date.setHours(hours, minutes, 0, 0);
+    }
+
+    return new Date() > date;
+  };  
 
   const [paymentInfo, setPaymentInfo] = useState({
     businessName: "",
@@ -234,23 +325,23 @@ export default function ProviderDashboard() {
     }));
   };
 
-const handleSavePayment = async () => {
-  try {
-    setPaymentLoading(true);
-    setError("");
-    setSuccess("");
+  const handleSavePayment = async () => {
+    try {
+      setPaymentLoading(true);
+      setError("");
+      setSuccess("");
 
-    const data = await updatePaymentInformation(paymentInfo);
+      const data = await updatePaymentInformation(paymentInfo);
 
-    setSuccess(data?.message || "Payment information saved successfully.");
-    if (data?.paymentContact) setPaymentInfo((p) => ({ ...p, ...data.paymentContact }));
-  } catch (err) {
-    const msg = typeof err === "object" && err !== null && "message" in err ? String(err.message) : "Failed to save payment information.";
-    setError(msg);
-  } finally {
-    setPaymentLoading(false);
-  }
-};
+      setSuccess(data?.message || "Payment information saved successfully.");
+      if (data?.paymentContact) setPaymentInfo((p) => ({ ...p, ...data.paymentContact }));
+    } catch (err) {
+      const msg = typeof err === "object" && err !== null && "message" in err ? String(err.message) : "Failed to save payment information.";
+      setError(msg);
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
 
   const inputStyle = {
     width: "100%",
@@ -277,28 +368,214 @@ const handleSavePayment = async () => {
     return { color: "#065f46", background: "#d1fae5" };
   };
 
+
+  const styles = {
+    page: {
+      minHeight: "70vh",
+      padding: "2.5rem 0 3.5rem",
+      background: "#f4f7fb",
+    },
+    sectionCard: {
+      background: "#ffffff",
+      border: "1px solid #e5e7eb",
+      borderRadius: "16px",
+      padding: "1.5rem",
+      marginBottom: "1.5rem",
+      boxShadow: "0 6px 20px rgba(15, 23, 42, 0.05)",
+    },
+    sectionHeader: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      flexWrap: "wrap",
+      gap: "1.25rem",
+      marginBottom: "1.5rem",
+    },
+    sectionTitle: {
+      margin: 0,
+      color: "#0f172a",
+      fontSize: "1.45rem",
+      lineHeight: 1.25,
+    },
+    sectionSubtitle: {
+      color: "#64748b",
+      margin: "0.4rem 0 0",
+      lineHeight: 1.5,
+    },
+    filterGroup: {
+      display: "flex",
+      gap: "0.75rem",
+      flexWrap: "wrap",
+      alignItems: "flex-end",
+    },
+    filterField: {
+      display: "flex",
+      flexDirection: "column",
+      gap: "0.35rem",
+      minWidth: "170px",
+    },
+    filterLabel: {
+      fontSize: "0.78rem",
+      fontWeight: "700",
+      color: "#475569",
+      letterSpacing: "0.02em",
+    },
+    filterSelect: {
+      padding: "0.65rem 0.8rem",
+      borderRadius: "9px",
+      border: "1px solid #cbd5e1",
+      background: "#fff",
+      color: "#0f172a",
+      fontSize: "0.92rem",
+      outline: "none",
+    },
+    bookingList: {
+      display: "grid",
+      gap: "1rem",
+    },
+    bookingCard: {
+      border: "1px solid #e2e8f0",
+      borderRadius: "14px",
+      padding: "1.25rem",
+      background: "#fff",
+      boxShadow: "0 3px 12px rgba(15, 23, 42, 0.04)",
+    },
+    bookingHeader: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      gap: "1rem",
+      flexWrap: "wrap",
+      paddingBottom: "1rem",
+      marginBottom: "1rem",
+      borderBottom: "1px solid #eef2f7",
+    },
+    bookingTitle: {
+      margin: 0,
+      color: "#0f172a",
+      fontSize: "1.1rem",
+      lineHeight: 1.35,
+    },
+    bookingLocation: {
+      margin: "0.3rem 0 0",
+      color: "#64748b",
+      fontSize: "0.9rem",
+    },
+    statusBadge: {
+      padding: "0.45rem 0.8rem",
+      borderRadius: "999px",
+      fontSize: "0.78rem",
+      fontWeight: "700",
+      whiteSpace: "nowrap",
+    },
+    bookingDetails: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+      gap: "0.75rem",
+    },
+    detailItem: {
+      background: "#f8fafc",
+      border: "1px solid #edf2f7",
+      borderRadius: "10px",
+      padding: "0.85rem",
+      minWidth: 0,
+    },
+    detailLabel: {
+      display: "block",
+      color: "#64748b",
+      fontSize: "0.76rem",
+      fontWeight: "700",
+      textTransform: "uppercase",
+      letterSpacing: "0.04em",
+      marginBottom: "0.35rem",
+    },
+    detailValue: {
+      margin: 0,
+      color: "#1e293b",
+      fontWeight: "600",
+      lineHeight: 1.4,
+    },
+    detailSecondary: {
+      margin: "0.15rem 0 0",
+      color: "#64748b",
+      fontSize: "0.86rem",
+      lineHeight: 1.35,
+      wordBreak: "break-word",
+    },
+    bookingActions: {
+      display: "flex",
+      justifyContent: "flex-end",
+      alignItems: "center",
+      gap: "0.75rem",
+      marginTop: "1rem",
+      paddingTop: "1rem",
+      borderTop: "1px solid #eef2f7",
+    },
+    payButton: {
+      fontSize: "0.88rem",
+      padding: "0.55rem 1rem",
+      borderRadius: "8px",
+      fontWeight: "700",
+    },
+    emptyState: {
+      textAlign: "center",
+      padding: "2.5rem 1rem",
+      color: "#64748b",
+    },
+    courtGrid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+      gap: "1rem",
+    },
+    courtCard: {
+      background: "#fff",
+      border: "1px solid #e2e8f0",
+      borderRadius: "14px",
+      padding: "1rem",
+      boxShadow: "0 4px 14px rgba(15, 23, 42, 0.05)",
+      overflow: "hidden",
+    },
+    courtImage: {
+      width: "100%",
+      height: "165px",
+      objectFit: "cover",
+      borderRadius: "10px",
+      marginBottom: "0.8rem",
+    },
+    courtActions: {
+      display: "flex",
+      gap: "0.5rem",
+      marginTop: "1rem",
+    },
+  };
+
   return (
     <>
-      <section style={{ minHeight: "70vh", padding: "2rem 0", background: "#f9fafb" }}>
+      <section style={styles.page}>
         <div className="container">
 
           {/* HEADER */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
+          <div style={styles.sectionHeader}>
             <div>
-              <h1>{isSuperAdmin ? "Court Management" : "My Courts"}</h1>
-              <p>Welcome, {user?.name}</p>
+              <h1 style={{ margin: 0, color: "#0f172a" }}>
+                {isSuperAdmin ? "Court Management" : "My Courts"}
+              </h1>
+              <p style={{ margin: "0.4rem 0 0", color: "#64748b" }}>
+                Welcome, {user?.name}
+              </p>
             </div>
-            <button onClick={openAddForm} className="btn btn-primary">+ Add Court</button>
+            <button onClick={openAddForm} className="btn btn-primary">
+              + Add Court
+            </button>
           </div>
 
           {/* ALERTS */}
           {error && <div style={{ background: "#fee2e2", color: "#991b1b", padding: "1rem", borderRadius: "8px", marginBottom: "1rem" }}>{error}</div>}
           {success && <div style={{ background: "#d1fae5", color: "#065f46", padding: "1rem", borderRadius: "8px", marginBottom: "1rem" }}>{success}</div>}
 
-
           {/* FORM */}
           {showForm && (
-            <form onSubmit={handleSubmit} style={{ background: "white", padding: "2rem", borderRadius: "12px", marginBottom: "2rem" }}>
+            <form onSubmit={handleSubmit} style={styles.sectionCard}>
               <h2>{editingId ? "Edit Court" : "Add Court"}</h2>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
@@ -367,18 +644,8 @@ const handleSavePayment = async () => {
             </form>
           )}
 
-
-
           {/* PAYMENT INFORMATION */}
-
-          <div
-            style={{
-              background: "white",
-              padding: "2rem",
-              borderRadius: "12px",
-              marginBottom: "2rem",
-            }}
-          >
+          <div style={styles.sectionCard}>
             <h2>Payment Information</h2>
 
             <p
@@ -474,87 +741,163 @@ const handleSavePayment = async () => {
             </button>
           </div>
 
-
-
-
-
           {/* PROVIDER BOOKINGS */}
-          <div style={{ background: "white", padding: "2rem", borderRadius: "12px", marginBottom: "2rem" }}>
-            <h2 style={{ marginBottom: "1rem" }}>Bookings for Your Courts</h2>
-            <p style={{ color: "#6b7280", marginBottom: "1rem" }}>
-              See who booked your courts, when, and whether payment is complete.
-            </p>
+          <div style={styles.sectionCard}>
+            <div style={styles.sectionHeader}>
+              <div>
+                <h2 style={styles.sectionTitle}>Bookings for Your Courts</h2>
+                <p style={styles.sectionSubtitle}>
+                  See who booked your courts, when, and whether payment is complete.
+                </p>
+              </div>
+
+              {/* Booking Filters */}
+              <div style={styles.filterGroup}>
+                <div style={styles.filterField}>
+                  <label style={styles.filterLabel}>Time Range</label>
+                  <select
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    style={styles.filterSelect}
+                  >
+                    <option value="all">All Dates</option>
+                    <option value="today">Today</option>
+                    <option value="upcoming">Upcoming</option>
+                  </select>
+                </div>
+
+                <div style={styles.filterField}>
+                  <label style={styles.filterLabel}>Payment Status</label>
+                  <select
+                    value={paymentFilter}
+                    onChange={(e) => setPaymentFilter(e.target.value)}
+                    style={styles.filterSelect}
+                  >
+                    <option value="all">All Payment Statuses</option>
+                    <option value="completed">Completed / Paid</option>
+                    <option value="pending">Pending</option>
+                    <option value="failed">Failed / Cancelled</option>
+                  </select>
+                </div>
+              </div>
+            </div>
 
             {providerBookingsLoading ? (
-              <p>Loading bookings...</p>
-            ) : providerBookings.length === 0 ? (
-              <p style={{ color: "#6b7280" }}>No bookings yet for your courts.</p>
+              <p style={{ color: "#64748b", margin: 0 }}>Loading bookings...</p>
+            ) : filteredBookings.length === 0 ? (
+              <div style={styles.emptyState}>
+                <p style={{ margin: 0 }}>No bookings match the selected filters.</p>
+              </div>
             ) : (
-              <div style={{ display: "grid", gap: "1rem" }}>
-                {providerBookings.map((booking) => (
-                  <div key={booking._id} style={{ border: "1px solid #e5e7eb", borderRadius: "10px", padding: "1rem" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+              <div style={styles.bookingList}>
+                {filteredBookings.map((booking) => (
+                  <div key={booking._id} style={styles.bookingCard}>
+                    <div style={styles.bookingHeader}>
                       <div>
-                        <h3 style={{ margin: 0, color: "#111827" }}>{booking.court?.name || "Court"}</h3>
-                        <p style={{ margin: "0.25rem 0 0", color: "#6b7280" }}>
-                          {booking.court?.district || "—"} · {booking.court?.address || "—"}
+                        <h3 style={styles.bookingTitle}>
+                          {booking.court?.name || "Court"}
+                        </h3>
+                        <p style={styles.bookingLocation}>
+                          {booking.court?.district || "—"} ·{" "}
+                          {booking.court?.address || "—"}
                         </p>
                       </div>
-                      <span style={{ padding: "0.35rem 0.7rem", borderRadius: "999px", fontSize: "0.85rem", fontWeight: "600", ...bookingStatusColor(booking) }}>
-                        {booking.status === "pending_payment" ? "Awaiting payment" : booking.status || "Confirmed"}
+
+                      <span
+                        style={{
+                          ...styles.statusBadge,
+                          ...bookingStatusColor(booking),
+                        }}
+                      >
+                        {booking.status === "pending_payment"
+                          ? "Awaiting payment"
+                          : booking.status || "Confirmed"}
                       </span>
                     </div>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.75rem", color: "#374151" }}>
-                      <div>
-                        <strong>Booked by</strong>
-                        <p style={{ margin: "0.25rem 0 0" }}>{booking.user?.name || "Unknown"}</p>
-                        <p style={{ margin: 0, color: "#6b7280", fontSize: "0.9rem" }}>{booking.user?.email || "—"}</p>
-                        <p style={{ margin: 0, color: "#6b7280", fontSize: "0.9rem" }}>{booking.user?.phone || "—"}</p>
+                    <div style={styles.bookingDetails}>
+                      <div style={styles.detailItem}>
+                        <strong style={styles.detailLabel}>Booked by</strong>
+                        <p style={styles.detailValue}>
+                          {booking.user?.name || "Unknown"}
+                        </p>
+                        <p style={styles.detailSecondary}>
+                          {booking.user?.email || "—"}
+                        </p>
+                        <p style={styles.detailSecondary}>
+                          {booking.user?.phone || "—"}
+                        </p>
                       </div>
-                      <div>
-                        <strong>Date</strong>
-                        <p style={{ margin: "0.25rem 0 0" }}>{formatDate(booking.date)}</p>
+
+                      <div style={styles.detailItem}>
+                        <strong style={styles.detailLabel}>Date</strong>
+                        <p style={styles.detailValue}>
+                          {formatDate(booking.date)}
+                        </p>
                       </div>
-                      <div>
-                        <strong>Time</strong>
-                        <p style={{ margin: "0.25rem 0 0" }}>{booking.timeSlot || "—"}</p>
+
+                      <div style={styles.detailItem}>
+                        <strong style={styles.detailLabel}>Time</strong>
+                        <p style={styles.detailValue}>
+                          {booking.timeSlot || "—"}
+                        </p>
                       </div>
-                      <div>
-                        <strong>Payment</strong>
-                        <p style={{ margin: "0.25rem 0 0" }}>{booking.paymentStatus || "pending"}</p>
-                        <p style={{ margin: 0, color: "#6b7280", fontSize: "0.9rem" }}>{booking.paymentProvider || "—"}</p>
+
+                      <div style={styles.detailItem}>
+                        <strong style={styles.detailLabel}>Payment</strong>
+                        <p style={styles.detailValue}>
+                          {booking.paymentStatus || "pending"}
+                        </p>
+                        <p style={styles.detailSecondary}>
+                          {booking.paymentProvider || "—"}
+                        </p>
                       </div>
                     </div>
+
+                    {(booking.status === "pending_payment" ||
+                      (booking.paymentStatus || "").toLowerCase() === "pending") &&
+                      booking.status !== "cancelled" && (
+                        <div style={styles.bookingActions}>
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={updatingPaymentId === booking._id}
+                            onClick={() => handleMarkAsPaid(booking._id)}
+                            style={styles.payButton}
+                          >
+                            {updatingPaymentId === booking._id
+                              ? "Updating..."
+                              : "Mark as Paid"}
+                          </button>
+                        </div>
+                      )}
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-
-
           {/* COURT LIST */}
           {loading ? (
             <p>Loading courts...</p>
           ) : courts.length === 0 ? (
-            <div style={{ background: "white", padding: "2rem", borderRadius: "12px", textAlign: "center" }}>
+            <div style={{ ...styles.sectionCard, ...styles.emptyState }}>
               <p>You haven't added any courts yet.</p>
               <button onClick={openAddForm} className="btn btn-primary">Add Your First Court</button>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "1rem" }}>
+            <div style={styles.courtGrid}>
               {courts.map((court) => (
-                <div key={court._id} style={{ background: "white", borderRadius: "12px", padding: "1rem", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
+                <div key={court._id} style={styles.courtCard}>
                   <img
                     src={courtImageUrl(court.image) || "https://images.unsplash.com/photo-1606925797300-0b35e9d1794e"}
                     alt={court.name}
-                    style={{ width: "100%", height: "150px", objectFit: "cover", borderRadius: "8px", marginBottom: "0.5rem" }}
+                    style={styles.courtImage}
                   />
                   <h3>{court.name}</h3>
                   <p>{court.type} · {court.district}</p>
                   <p>NPR {court.pricePerHour}/hr</p>
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <div style={styles.courtActions}>
                     <button className="btn btn-secondary" onClick={() => openEditForm(court)}>Edit</button>
                     <button className="btn btn-danger" onClick={() => handleDelete(court._id, court.name)}>Delete</button>
                   </div>

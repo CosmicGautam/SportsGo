@@ -30,6 +30,35 @@ export default function AllBookings() {
     }
   };
 
+
+
+  // helper function to check if the time slot has passed
+  const isSlotPassed = (bookingDate, timeSlot) => {
+    const date = new Date(bookingDate);
+    
+    // Extract start time from slot string (e.g., "10:00 - 11:00" -> "10:00")
+    let startTime = timeSlot;
+    if (timeSlot.includes("-")) {
+      startTime = timeSlot.split("-")[0].trim();
+    }
+
+    // Parse hours and minutes
+    const timeParts = startTime.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+    if (timeParts) {
+      let hours = parseInt(timeParts[1], 10);
+      const minutes = parseInt(timeParts[2], 10);
+      const ampm = timeParts[3];
+
+      if (ampm) {
+        if (ampm.toUpperCase() === "PM" && hours < 12) hours += 12;
+        if (ampm.toUpperCase() === "AM" && hours === 12) hours = 0;
+      }
+      date.setHours(hours, minutes, 0, 0);
+    }
+
+    return new Date() > date;
+  };
+
   const handleCancel = async (bookingId) => {
     if (!window.confirm("Are you sure you want to cancel this booking?")) {
       return;
@@ -98,8 +127,6 @@ export default function AllBookings() {
 
   return (
     <>
-
-
       <section style={{ minHeight: "70vh", padding: "2rem 0", background: '#f9fafb' }}>
         <div className="container">
           <div style={{ 
@@ -251,30 +278,34 @@ export default function AllBookings() {
                             </p>
                           </div>
 
-                          <div style={{
-                            marginTop: '1rem',
-                            paddingTop: '1rem',
-                            borderTop: '2px solid #e5e7eb'
-                          }}>
-                            <button
-                              onClick={() => handleCancel(booking._id)}
-                              style={{
-                                width: '100%',
-                                padding: '0.625rem 1.25rem',
-                                background: '#ef4444',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                fontWeight: '600',
-                                transition: 'background 0.3s'
-                              }}
-                              onMouseOver={(e) => e.target.style.background = '#dc2626'}
-                              onMouseOut={(e) => e.target.style.background = '#ef4444'}
-                            >
-                              Cancel Booking
-                            </button>
+
+                          <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '2px solid #e5e7eb' }}>
+                            {isSlotPassed(booking.date, booking.timeSlot) ? (
+                              <span style={{ color: '#9ca3af', fontSize: '0.875rem', fontWeight: '600' }}>
+                                Time Slot Has Passed
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleCancel(booking._id)}
+                                style={{
+                                  width: '100%',
+                                  padding: '0.625rem 1.25rem',
+                                  background: '#ef4444',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '8px',
+                                  cursor: 'pointer',
+                                  fontWeight: '600',
+                                  transition: 'background 0.3s'
+                                }}
+                                onMouseOver={(e) => (e.target.style.background = '#dc2626')}
+                                onMouseOut={(e) => (e.target.style.background = '#ef4444')}
+                              >
+                                Cancel Booking
+                              </button>
+                            )}
                           </div>
+
                         </div>
                       ))}
                     </div>

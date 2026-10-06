@@ -153,3 +153,4 @@ exports.rejectPaymentInformation = async (req, res) => {
     });
   }
 };
+
